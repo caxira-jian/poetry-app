@@ -1,0 +1,75 @@
+:root {
+  --bg: #f6efe5;
+  --card: #fffaf4;
+  --text: #1f1d1a;
+  --subtext: #55504a;
+  --primary: #8f3f2f;
+  --primary-2: #b96a3f;
+  --border: #e7dccd;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  background: radial-gradient(circle at 15% 10%, #fff8ef 0, #f6efe5 42%, #ece2d2 100%);
+  color: var(--text);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: var(--primary);
+  color: #fff;
+}
+
+button.secondary {
+  background: #d6c6ae;
+  color: #2f2923;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  background: #fffcf7;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 4px 16px rgba(64, 45, 12, 0.08);
+}
+
+.muted {
+  color: var(--subtext);
+  font-size: 13px;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 86px;
+}
+
+.grid {
+  display: grid;
+  gap: 10px;
+}
