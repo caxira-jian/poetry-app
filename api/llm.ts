@@ -1,5 +1,4 @@
 import { appendFile, mkdir } from "node:fs/promises";
-import { LLM_PROMPTS } from "../shared/llmPrompts";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 
@@ -93,12 +92,12 @@ async function readBody(req: IncomingMessage): Promise<RequestBody> {
 
 function buildMessages(body: RequestBody): ChatMessage[] {
   if (body.action === "test") {
-    return [{ role: "user", content: LLM_PROMPTS.connectivityPingUser }];
+    return [{ role: "user", content: "ping" }];
   }
   if (body.messages && body.messages.length > 0) {
     return body.messages;
   }
-  return [{ role: "user", content: LLM_PROMPTS.connectivityPingUser }];
+  return [{ role: "user", content: "ping" }];
 }
 
 async function callDefaultApi(config: ReturnType<typeof getConfig>, body: RequestBody, messages: ChatMessage[]) {
@@ -325,6 +324,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     });
   }
 }
+
 
 
 
