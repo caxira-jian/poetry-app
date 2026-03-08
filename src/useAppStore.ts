@@ -12,8 +12,9 @@ import {
 } from "./services/crypto";
 import { getDefaultApiProfile } from "./services/defaultApi";
 import { testProviderConnection } from "./services/llmProviders";
-import { parseNaturalInputFromLlm, type NluAction, type NluParseResult } from "./services/nluService";
-import { getFallbackRecommendation, getRecommendationsFromLlm } from "./services/recommendationService";
+import { parseNaturalInputFromDefaultApi, parseNaturalInputFromLlm, type NluAction, type NluParseResult } from "./services/nluService";
+import { testDefaultProxyConnection } from "./services/defaultApiProxy";
+import { getFallbackRecommendation, getRecommendationsFromDefaultApi, getRecommendationsFromLlm } from "./services/recommendationService";
 import {
   addReciteLog,
   getPoems,
@@ -46,19 +47,21 @@ interface ChangeItem {
   detail: string;
 }
 
+type ApiMode = "default" | "custom";
+
 const API_MODE_KEY = "poetry.api.mode";
 const defaultApiProfile = getDefaultApiProfile();
-const defaultApiAvailable = Boolean(defaultApiProfile);
+const defaultApiAvailable = true;
 
-function loadApiMode(): "default" | "custom" {
+function loadApiMode(): ApiMode {
   const saved = localStorage.getItem(API_MODE_KEY);
   if (saved === "default" || saved === "custom") {
     return saved;
   }
-  return defaultApiAvailable ? "default" : "custom";
+  return "default";
 }
 
-function saveApiMode(mode: "default" | "custom"): void {
+function saveApiMode(mode: ApiMode): void {
   localStorage.setItem(API_MODE_KEY, mode);
 }
 
@@ -177,23 +180,12 @@ function setRememberBrowserForDay(enabled: boolean): void {
   state.rememberBrowserForDay = enabled;
 }
 
-function setApiMode(mode: "default" | "custom"): void {
+function setApiMode(mode: ApiMode): void {
   state.apiMode = mode;
   saveApiMode(mode);
 }
 
-async function getEnabledProviderWithKey(): Promise<{ config: ProviderConfig; apiKey: string; source: "default" | "custom" }> {
-  if (state.apiMode === "default") {
-    if (!defaultApiProfile) {
-      throw new Error("默认 API 未配置完整（请设置 VITE_DEFAULT_API_*）");
-    }
-    return {
-      config: defaultApiProfile.config,
-      apiKey: defaultApiProfile.apiKey,
-      source: "default"
-    };
-  }
-
+async function getCustomProviderWithKey(): Promise<{ config: ProviderConfig; apiKey: string }> {
   if (!state.unlocked) {
     throw new Error("会话未解锁，请先在模型页解锁主密码");
   }
@@ -208,11 +200,7 @@ async function getEnabledProviderWithKey(): Promise<{ config: ProviderConfig; ap
   }
 
   const apiKey = await decryptSecret(enabledConfig.encryptedApiKey, enabledConfig.encryptedApiKeyIv);
-  return {
-    config: enabledConfig,
-    apiKey,
-    source: "custom"
-  };
+  return { config: enabledConfig, apiKey };
 }
 
 async function refreshAll(): Promise<void> {
@@ -458,24 +446,44 @@ async function parseNaturalInputPreview(text: string): Promise<void> {
     }
 
     startLlm("正在解析你的口语输入并检查全量诗库...");
-    const { config, apiKey } = await getEnabledProviderWithKey();
-    const parsed: NluParseResult = await parseNaturalInputFromLlm({
-      text: content,
-      poems: state.poems.map((item) => ({
-        id: item.id,
-        title: item.title,
-        author: item.author,
-        content: item.content,
-        dynasty: item.dynasty,
-        tags: item.tags,
-        learnIntent: item.learnIntent,
-        currentStatus: item.currentStatus,
-        masteryLevel: item.masteryLevel,
-        lastRecitedAt: item.lastRecitedAt
-      })),
-      config,
-      apiKey
-    });
+
+    const parsed: NluParseResult =
+      state.apiMode === "default"
+        ? await parseNaturalInputFromDefaultApi({
+            text: content,
+            poems: state.poems.map((item) => ({
+              id: item.id,
+              title: item.title,
+              author: item.author,
+              content: item.content,
+              dynasty: item.dynasty,
+              tags: item.tags,
+              learnIntent: item.learnIntent,
+              currentStatus: item.currentStatus,
+              masteryLevel: item.masteryLevel,
+              lastRecitedAt: item.lastRecitedAt
+            }))
+          })
+        : await (async () => {
+            const { config, apiKey } = await getCustomProviderWithKey();
+            return parseNaturalInputFromLlm({
+              text: content,
+              poems: state.poems.map((item) => ({
+                id: item.id,
+                title: item.title,
+                author: item.author,
+                content: item.content,
+                dynasty: item.dynasty,
+                tags: item.tags,
+                learnIntent: item.learnIntent,
+                currentStatus: item.currentStatus,
+                masteryLevel: item.masteryLevel,
+                lastRecitedAt: item.lastRecitedAt
+              })),
+              config,
+              apiKey
+            });
+          })();
 
     const preview = evaluateNluActions(parsed.actions);
 
@@ -609,18 +617,10 @@ async function testProvider(provider: ProviderName): Promise<void> {
   try {
     startLlm("正在请求模型连通性...");
 
-    const source = state.apiMode === "default" ? "default" : "custom";
-    const targetProvider = source === "default" ? (defaultApiProfile?.config.provider || provider) : provider;
-
-    let config: ProviderConfig;
-    let apiKey: string;
-
-    if (source === "default") {
-      if (!defaultApiProfile) {
-        throw new Error("默认 API 未配置完整（请设置 VITE_DEFAULT_API_*）");
-      }
-      config = defaultApiProfile.config;
-      apiKey = defaultApiProfile.apiKey;
+    if (state.apiMode === "default") {
+      const result = await testDefaultProxyConnection();
+      const snippet = (result.body || "").slice(0, 600);
+      state.providerTestResult = `[${result.provider}] HTTP ${result.status}${result.ok ? " OK" : ""} | ${snippet}`;
     } else {
       if (!state.unlocked) {
         throw new Error("当前会话未解锁，请先输入主密码。");
@@ -632,13 +632,11 @@ async function testProvider(provider: ProviderName): Promise<void> {
       if (!found.encryptedApiKey || !found.encryptedApiKeyIv) {
         throw new Error(`模型 ${provider} 未保存 API Key。`);
       }
-      config = found;
-      apiKey = await decryptSecret(found.encryptedApiKey, found.encryptedApiKeyIv);
+      const apiKey = await decryptSecret(found.encryptedApiKey, found.encryptedApiKeyIv);
+      const result = await testProviderConnection(found, apiKey);
+      const snippet = result.body.slice(0, 600);
+      state.providerTestResult = `[${provider}] HTTP ${result.status}${result.ok ? " OK" : ""} | ${snippet}`;
     }
-
-    const result = await testProviderConnection(config, apiKey);
-    const snippet = result.body.slice(0, 600);
-    state.providerTestResult = `[${targetProvider}] HTTP ${result.status}${result.ok ? " OK" : ""} | ${snippet}`;
   } catch (error) {
     const text = error instanceof Error ? error.message : String(error);
     state.providerTestResult = `[TEST FAILED] ${text}`;
@@ -660,27 +658,32 @@ async function recommend(): Promise<void> {
     }
 
     startLlm("正在让大模型生成推荐...");
-    const { config, apiKey, source } = await getEnabledProviderWithKey();
 
     try {
-      const llmResult = await getRecommendationsFromLlm({
-        poems: state.poems,
-        logs: state.reciteLogs,
-        config,
-        apiKey
-      });
+      const llmResult =
+        state.apiMode === "default"
+          ? await getRecommendationsFromDefaultApi({ poems: state.poems, logs: state.reciteLogs })
+          : await (async () => {
+              const { config, apiKey } = await getCustomProviderWithKey();
+              return getRecommendationsFromLlm({
+                poems: state.poems,
+                logs: state.reciteLogs,
+                config,
+                apiKey
+              });
+            })();
 
       const isEmpty = llmResult.review.length === 0 && llmResult.newLearning.length === 0;
       if (isEmpty) {
-        state.recommendationDebug = `LLM 调用成功但返回空推荐，已切换规则候选。来源：${config.provider}（${source}）。`;
+        state.recommendationDebug = `LLM 调用成功但返回空推荐，已切换规则候选。来源：${state.apiMode === "default" ? defaultApiProfile.config.provider : "custom"}（${state.apiMode}）。`;
         state.recommendation = getFallbackRecommendation(state.poems);
       } else {
         state.recommendation = llmResult;
-        state.recommendationDebug = `LLM 推荐成功，来源：${config.provider}（${source}）。`;
+        state.recommendationDebug = `LLM 推荐成功，来源：${state.apiMode === "default" ? defaultApiProfile.config.provider : "custom"}（${state.apiMode}）。`;
       }
     } catch (error) {
       const errorText = error instanceof Error ? error.message : String(error);
-      state.recommendationDebug = `调用 ${config.provider} 失败：${errorText}。已使用兜底方案。`;
+      state.recommendationDebug = `调用模型失败：${errorText}。已使用兜底方案。`;
       state.recommendation = getFallbackRecommendation(state.poems);
     }
   } catch (error) {

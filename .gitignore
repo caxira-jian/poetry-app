@@ -4,5 +4,7 @@ dist/
 coverage/
 .npm-cache/
 .vercel/
+.env.local
+.env
 *.log
 .DS_Store

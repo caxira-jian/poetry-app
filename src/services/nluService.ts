@@ -1,4 +1,5 @@
 import { callProviderChat } from "./llmProviders";
+import { callDefaultProxyChat } from "./defaultApiProxy";
 import type { LearnIntent, ProviderConfig, ReciteStatus } from "../types";
 
 interface ContextPoem {
@@ -70,15 +71,8 @@ function stripCodeFence(text: string): string {
     .trim();
 }
 
-export async function parseNaturalInputFromLlm(params: {
-  text: string;
-  poems: ContextPoem[];
-  config: ProviderConfig;
-  apiKey: string;
-}): Promise<NluParseResult> {
-  const { text, poems, config, apiKey } = params;
-
-  const prompt = [
+function buildPrompt(text: string, poems: ContextPoem[]): string {
+  return [
     "你是古诗学习应用的结构化输入与去重审查器。",
     "必须先完整审查已存在诗库，再输出动作，避免重复录入。",
     "同一标题+作者优先识别为已有条目，应给出修改或意向更新，而不是重复新增。",
@@ -97,6 +91,28 @@ export async function parseNaturalInputFromLlm(params: {
     "用户输入:",
     text
   ].join("\n");
+}
+
+function parseNluText(content: string): NluParseResult {
+  const parsed = JSON.parse(stripCodeFence(content)) as Partial<NluParseResult>;
+  if (!Array.isArray(parsed.actions)) {
+    throw new Error("LLM 返回的 actions 非数组");
+  }
+
+  return {
+    summary: parsed.summary || "已完成口语解析与诗库审查",
+    actions: parsed.actions as NluAction[]
+  };
+}
+
+export async function parseNaturalInputFromLlm(params: {
+  text: string;
+  poems: ContextPoem[];
+  config: ProviderConfig;
+  apiKey: string;
+}): Promise<NluParseResult> {
+  const { text, poems, config, apiKey } = params;
+  const prompt = buildPrompt(text, poems);
 
   const response = await callProviderChat(
     config,
@@ -107,13 +123,21 @@ export async function parseNaturalInputFromLlm(params: {
     ]
   );
 
-  const parsed = JSON.parse(stripCodeFence(response.content)) as Partial<NluParseResult>;
-  if (!Array.isArray(parsed.actions)) {
-    throw new Error("LLM 返回的 actions 非数组");
-  }
+  return parseNluText(response.content);
+}
 
-  return {
-    summary: parsed.summary || "已完成口语解析与诗库审查",
-    actions: parsed.actions as NluAction[]
-  };
+export async function parseNaturalInputFromDefaultApi(params: {
+  text: string;
+  poems: ContextPoem[];
+}): Promise<NluParseResult> {
+  const prompt = buildPrompt(params.text, params.poems);
+  const response = await callDefaultProxyChat({
+    messages: [
+      { role: "system", content: "你只输出合法 JSON，且动作必须可执行。" },
+      { role: "user", content: prompt }
+    ],
+    temperature: 0.2
+  });
+
+  return parseNluText(response.content);
 }

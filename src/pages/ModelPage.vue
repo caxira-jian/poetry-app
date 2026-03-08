@@ -57,7 +57,6 @@ async function testConfig(config: ProviderConfig) {
           name="apiMode"
           value="default"
           :checked="props.store.state.apiMode === 'default'"
-          :disabled="!props.store.state.defaultApiAvailable"
           @change="props.store.setApiMode('default')"
         />
         <span>默认 API 兜底</span>
@@ -72,8 +71,7 @@ async function testConfig(config: ProviderConfig) {
         />
         <span>自定义 API（我的 key + 模型）</span>
       </label>
-      <div v-if="props.store.state.defaultApiAvailable" class="muted">默认 API 已配置（来自本地环境变量），可直接作为兜底。</div>
-      <div v-else class="muted">默认 API 未配置完整，请在部署环境设置 `VITE_DEFAULT_API_*`。</div>
+      <div class="muted">默认 API 实际可用性由服务端 `DEFAULT_API_*` 环境变量决定；访客不会看到明文 key。</div>
     </div>
 
     <div class="card grid" v-if="props.store.state.apiMode === 'custom'">
@@ -153,8 +151,8 @@ async function testConfig(config: ProviderConfig) {
 
     <div class="card" v-else>
       <h3>默认 API</h3>
-      <div class="muted">当前使用默认 API 兜底。你可以直接去“今日推荐/诗库/记录”页面使用大模型能力。</div>
-      <button class="secondary" :disabled="props.store.state.loading" @click="props.store.testProvider('glm')">
+      <div class="muted">当前使用服务端默认 API 兜底。访客无需配置 key 即可使用。</div>
+      <button class="secondary" :disabled="props.store.state.loading" @click="props.store.testProvider('custom')">
         <span v-if="props.store.state.loading">生成中<span class="dot-loop"><span>.</span><span>.</span><span>.</span></span></span>
         <span v-else>测试默认 API 连通性</span>
       </button>
