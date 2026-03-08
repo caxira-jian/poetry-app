@@ -1,4 +1,4 @@
-import { appendFile, mkdir } from "node:fs/promises";
+import { appendFile, mkdir } from "node:fs/promises";`nimport { LLM_PROMPTS } from "../shared/llmPrompts";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 
@@ -39,6 +39,9 @@ interface LogEntry {
   upstreamModel?: string;
   requestId?: string;
   promptChars: number;
+  requestMessages?: ChatMessage[];
+  responseContent?: string;
+  upstreamBody?: string;
   timings: TimingStats;
   usage?: UsageStats;
   error?: string;
@@ -89,12 +92,12 @@ async function readBody(req: IncomingMessage): Promise<RequestBody> {
 
 function buildMessages(body: RequestBody): ChatMessage[] {
   if (body.action === "test") {
-    return [{ role: "user", content: "ping" }];
+    return [{ role: "user", content: LLM_PROMPTS.connectivityPingUser }];
   }
   if (body.messages && body.messages.length > 0) {
     return body.messages;
   }
-  return [{ role: "user", content: "ping" }];
+  return [{ role: "user", content: LLM_PROMPTS.connectivityPingUser }];
 }
 
 async function callDefaultApi(config: ReturnType<typeof getConfig>, body: RequestBody, messages: ChatMessage[]) {
@@ -137,9 +140,20 @@ function readUsage(payload: Record<string, unknown> | null): UsageStats | undefi
 }
 
 function getLogFilePath(): string {
+  const directFile = getEnv("LLM_LOG_FILE");
+  if (directFile) {
+    return directFile;
+  }
+
+  const customDir = getEnv("LLM_LOG_DIR");
+  if (customDir) {
+    return join(customDir, "llm-latency.log");
+  }
+
   if (process.env.VERCEL) {
     return "/tmp/llm-latency.log";
   }
+
   return join(process.cwd(), "logs", "llm-latency.log");
 }
 
@@ -155,6 +169,15 @@ async function appendLog(entry: LogEntry): Promise<void> {
   console.log(`[llm-latency] ${line.trim()}`);
 }
 
+function extractAssistantContent(payload: Record<string, unknown> | null): string {
+  if (!payload || typeof payload !== "object") {
+    return "";
+  }
+
+  const choices = payload.choices as Array<{ message?: { content?: string } }> | undefined;
+  return choices?.[0]?.message?.content || "";
+}
+
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   const totalStart = Date.now();
 
@@ -167,6 +190,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   let provider = "custom";
   let model = "";
   let promptChars = 0;
+  let requestMessages: ChatMessage[] = [];
 
   try {
     const config = getConfig();
@@ -182,6 +206,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         provider,
         model,
         promptChars,
+        requestMessages,
         timings: {
           readBodyMs: 0,
           upstreamMs: 0,
@@ -208,11 +233,11 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     }
 
     action = body.action;
-    const messages = buildMessages(body);
-    promptChars = messages.reduce((sum, item) => sum + (item.content || "").length, 0);
+    requestMessages = buildMessages(body);
+    promptChars = requestMessages.reduce((sum, item) => sum + (item.content || "").length, 0);
 
     const upstreamStart = Date.now();
-    const { response, text } = await callDefaultApi(config, body, messages);
+    const { response, text } = await callDefaultApi(config, body, requestMessages);
     const upstreamMs = Date.now() - upstreamStart;
 
     const parseStart = Date.now();
@@ -220,6 +245,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     const parseUpstreamJsonMs = Date.now() - parseStart;
 
     const usage = readUsage(payload);
+    const responseContent = extractAssistantContent(payload);
     const timings: TimingStats = {
       readBodyMs,
       upstreamMs,
@@ -237,6 +263,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       upstreamModel: typeof payload?.model === "string" ? payload.model : undefined,
       requestId: typeof payload?.id === "string" ? payload.id : undefined,
       promptChars,
+      requestMessages,
+      responseContent,
+      upstreamBody: text,
       timings,
       usage,
       error: response.ok ? undefined : `Upstream API failed: ${response.status}`
@@ -264,10 +293,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       return;
     }
 
-    const choices = (payload?.choices as Array<{ message?: { content?: string } }> | undefined) || [];
-
     writeJson(res, 200, {
-      content: choices[0]?.message?.content || "",
+      content: responseContent,
       provider: config.provider,
       model: config.model
     });
@@ -281,6 +308,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       provider,
       model,
       promptChars,
+      requestMessages,
       timings: {
         readBodyMs: 0,
         upstreamMs: 0,
@@ -296,3 +324,4 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     });
   }
 }
+

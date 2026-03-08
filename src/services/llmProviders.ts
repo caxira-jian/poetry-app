@@ -1,3 +1,4 @@
+import { LLM_PROMPTS } from "../../shared/llmPrompts";
 import type { ProviderConfig, ProviderName } from "../types";
 
 export interface ChatMessage {
@@ -66,7 +67,7 @@ export async function testProviderConnection(config: ProviderConfig, apiKey: str
     body: JSON.stringify({
       model: config.model,
       temperature: 0,
-      messages: [{ role: "user", content: "ping" }],
+      messages: [{ role: "user", content: LLM_PROMPTS.connectivityPingUser }],
       max_tokens: 8
     })
   });

@@ -1,3 +1,4 @@
+import { buildRecommendationUserPrompt, LLM_PROMPTS } from "../../shared/llmPrompts";
 import { callProviderChat } from "./llmProviders";
 import { callDefaultProxyChat } from "./defaultApiProxy";
 import { buildFallbackRecommendation } from "../domain/recommendation";
@@ -23,22 +24,6 @@ function parseRecommendation(text: string): RecommendationResult {
   };
 }
 
-function buildPrompt(poems: Poem[], logs: ReciteLog[]): string {
-  const payload = {
-    poems,
-    recentLogs: logs.slice(0, 40)
-  };
-
-  return [
-    "你是古诗背诵教练。",
-    "请根据用户诗库和近期背诵记录，输出 JSON，字段严格为 {review, newLearning}。",
-    "review 和 newLearning 都是数组，每项是 {poemId, reason}。",
-    "review 用于推荐复习，newLearning 用于推荐新学。",
-    "不要输出 markdown，不要输出多余字段。",
-    JSON.stringify(payload)
-  ].join("\n");
-}
-
 export async function getRecommendationsFromLlm(params: {
   poems: Poem[];
   logs: ReciteLog[];
@@ -56,11 +41,11 @@ export async function getRecommendationsFromLlm(params: {
       [
         {
           role: "system",
-          content: "你是严谨的学习助手。输出纯 JSON。"
+          content: LLM_PROMPTS.recommendationSystem
         },
         {
           role: "user",
-          content: buildPrompt(poems, logs)
+          content: buildRecommendationUserPrompt(poems, logs)
         }
       ],
       controller.signal
@@ -78,8 +63,8 @@ export async function getRecommendationsFromDefaultApi(params: {
 }): Promise<RecommendationResult> {
   const content = await callDefaultProxyChat({
     messages: [
-      { role: "system", content: "你是严谨的学习助手。输出纯 JSON。" },
-      { role: "user", content: buildPrompt(params.poems, params.logs) }
+      { role: "system", content: LLM_PROMPTS.recommendationSystem },
+      { role: "user", content: buildRecommendationUserPrompt(params.poems, params.logs) }
     ],
     temperature: 0.3
   });

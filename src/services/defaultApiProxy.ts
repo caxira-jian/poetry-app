@@ -1,9 +1,26 @@
 import type { ChatMessage } from "./llmProviders";
 
+interface ProxyTimings {
+  readBodyMs: number;
+  upstreamMs: number;
+  parseUpstreamJsonMs: number;
+  totalMs: number;
+}
+
+interface ProxyUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
 interface ProxyChatResult {
   content: string;
   provider: string;
   model: string;
+  upstreamModel?: string;
+  requestId?: string;
+  timings?: ProxyTimings;
+  usage?: ProxyUsage;
 }
 
 interface ProxyTestResult {
@@ -12,6 +29,32 @@ interface ProxyTestResult {
   body: string;
   provider: string;
   model: string;
+  upstreamModel?: string;
+  requestId?: string;
+  timings?: ProxyTimings;
+  usage?: ProxyUsage;
+}
+
+function safeParseJson<T>(raw: string): T | null {
+  if (!raw.trim()) {
+    return null;
+  }
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function readPayload(response: Response): Promise<{ payload: Record<string, unknown> | null; rawText: string }> {
+  const rawText = await response.text();
+  const payload = safeParseJson<Record<string, unknown>>(rawText);
+  return { payload, rawText };
+}
+
+function buildNonJsonError(status: number, rawText: string): Error {
+  const snippet = rawText.slice(0, 500);
+  return new Error(`Proxy returned non-JSON or empty body: ${status} ${snippet}`);
 }
 
 export async function callDefaultProxyChat(params: {
@@ -32,15 +75,25 @@ export async function callDefaultProxyChat(params: {
     })
   });
 
-  const payload = (await response.json()) as Partial<ProxyChatResult> & { error?: string; body?: string };
+  const { payload, rawText } = await readPayload(response);
+  if (!payload) {
+    throw buildNonJsonError(response.status, rawText);
+  }
+
   if (!response.ok) {
-    throw new Error(payload.error || payload.body || `Proxy chat failed: ${response.status}`);
+    const error = typeof payload.error === "string" ? payload.error : "";
+    const body = typeof payload.body === "string" ? payload.body : "";
+    throw new Error(error || body || `Proxy chat failed: ${response.status}`);
   }
 
   return {
-    content: payload.content || "",
-    provider: payload.provider || "default",
-    model: payload.model || ""
+    content: typeof payload.content === "string" ? payload.content : "",
+    provider: typeof payload.provider === "string" ? payload.provider : "default",
+    model: typeof payload.model === "string" ? payload.model : "",
+    upstreamModel: typeof payload.upstreamModel === "string" ? payload.upstreamModel : undefined,
+    requestId: typeof payload.requestId === "string" ? payload.requestId : undefined,
+    timings: (payload.timings as ProxyTimings | undefined) || undefined,
+    usage: (payload.usage as ProxyUsage | undefined) || undefined
   };
 }
 
@@ -53,16 +106,25 @@ export async function testDefaultProxyConnection(): Promise<ProxyTestResult> {
     body: JSON.stringify({ action: "test" })
   });
 
-  const payload = (await response.json()) as Partial<ProxyTestResult> & { error?: string; required?: string[] };
+  const { payload, rawText } = await readPayload(response);
+  if (!payload) {
+    throw buildNonJsonError(response.status, rawText);
+  }
+
   if (!response.ok) {
-    throw new Error(payload.error || `Proxy test failed: ${response.status}`);
+    const error = typeof payload.error === "string" ? payload.error : "";
+    throw new Error(error || `Proxy test failed: ${response.status}`);
   }
 
   return {
     ok: Boolean(payload.ok),
-    status: payload.status || 0,
-    body: payload.body || "",
-    provider: payload.provider || "default",
-    model: payload.model || ""
+    status: typeof payload.status === "number" ? payload.status : 0,
+    body: typeof payload.body === "string" ? payload.body : "",
+    provider: typeof payload.provider === "string" ? payload.provider : "default",
+    model: typeof payload.model === "string" ? payload.model : "",
+    upstreamModel: typeof payload.upstreamModel === "string" ? payload.upstreamModel : undefined,
+    requestId: typeof payload.requestId === "string" ? payload.requestId : undefined,
+    timings: (payload.timings as ProxyTimings | undefined) || undefined,
+    usage: (payload.usage as ProxyUsage | undefined) || undefined
   };
 }
