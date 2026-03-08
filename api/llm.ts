@@ -58,13 +58,17 @@ function getConfig() {
   const model = getEnv("DEFAULT_API_MODEL", "VITE_DEFAULT_API_MODEL");
   const apiKey = getEnv("DEFAULT_API_KEY");
   const temperatureRaw = Number(getEnv("DEFAULT_API_TEMPERATURE", "VITE_DEFAULT_API_TEMPERATURE") || "0.3");
+  const chatMaxTokensRaw = Number(getEnv("DEFAULT_API_CHAT_MAX_TOKENS") || "600");
+  const timeoutMsRaw = Number(getEnv("DEFAULT_API_TIMEOUT_MS") || "12000");
 
   return {
     provider,
     baseUrl,
     model,
     apiKey,
-    temperature: Number.isFinite(temperatureRaw) ? temperatureRaw : 0.3
+    temperature: Number.isFinite(temperatureRaw) ? temperatureRaw : 0.3,
+    chatMaxTokens: Number.isFinite(chatMaxTokensRaw) ? Math.max(64, Math.floor(chatMaxTokensRaw)) : 600,
+    timeoutMs: Number.isFinite(timeoutMsRaw) ? Math.max(3000, Math.floor(timeoutMsRaw)) : 12000
   };
 }
 
@@ -100,23 +104,55 @@ function buildMessages(body: RequestBody): ChatMessage[] {
   return [{ role: "user", content: "ping" }];
 }
 
-async function callDefaultApi(config: ReturnType<typeof getConfig>, body: RequestBody, messages: ChatMessage[]) {
-  const response = await fetch(toChatUrl(config.baseUrl), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${config.apiKey}`
-    },
-    body: JSON.stringify({
-      model: body.model || config.model,
-      temperature: body.temperature ?? config.temperature,
-      messages,
-      max_tokens: body.action === "test" ? 8 : undefined
-    })
-  });
+function isQwenLike(provider: string, model: string): boolean {
+  const p = provider.toLowerCase();
+  const m = model.toLowerCase();
+  return p.includes("qwen") || m.includes("qwen");
+}
 
-  const text = await response.text();
-  return { response, text };
+function buildUpstreamPayload(params: {
+  config: ReturnType<typeof getConfig>;
+  body: RequestBody;
+  messages: ChatMessage[];
+}): Record<string, unknown> {
+  const { config, body, messages } = params;
+  const model = body.model || config.model;
+  const payload: Record<string, unknown> = {
+    model,
+    temperature: body.temperature ?? config.temperature,
+    messages,
+    max_tokens: body.action === "test" ? 8 : config.chatMaxTokens
+  };
+
+  // Qwen 兼容接口：关闭深度思考，减少 reasoning token 带来的高延迟。
+  if (isQwenLike(config.provider, model)) {
+    payload.enable_thinking = false;
+    payload.extra_body = { enable_thinking: false };
+  }
+
+  return payload;
+}
+
+async function callDefaultApi(config: ReturnType<typeof getConfig>, body: RequestBody, messages: ChatMessage[]) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), config.timeoutMs);
+
+  try {
+    const response = await fetch(toChatUrl(config.baseUrl), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.apiKey}`
+      },
+      body: JSON.stringify(buildUpstreamPayload({ config, body, messages })),
+      signal: controller.signal
+    });
+
+    const text = await response.text();
+    return { response, text };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function parseUpstreamJson(text: string): Record<string, unknown> | null {
@@ -324,8 +360,3 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     });
   }
 }
-
-
-
-
-
