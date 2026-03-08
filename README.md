@@ -7,6 +7,8 @@
 - IndexedDB 本地持久化
 - 事件日志 + 快照状态
 - 主密码解锁后本地加密存储 API Key
+- 支持默认 API 兜底 + 用户自定义 API
+- 支持 OpenAI-compatible 默认 API（`provider=custom`）
 - LLM 推荐，失败时降级为待复习列表
 - PWA 配置（可添加到主屏）
 
@@ -28,6 +30,16 @@ npm run test
 ```bash
 npm run build
 ```
+
+## 默认 API 配置（可注释切换）
+
+- 使用 `.env.local`，文件里已内置多家常用产品模板。
+- 你只需要保持顶部 5 行为“当前激活配置”，其它模板注释掉即可。
+- 支持 `provider`:
+  - `qwen`
+  - `deepseek`
+  - `glm`
+  - `custom`（任意 OpenAI-compatible 产品）
 
 ## 部署到 Vercel
 

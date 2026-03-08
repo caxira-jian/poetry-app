@@ -10,6 +10,7 @@ import {
   tryAutoUnlock,
   unlockMasterPassword
 } from "./services/crypto";
+import { getDefaultApiProfile } from "./services/defaultApi";
 import { testProviderConnection } from "./services/llmProviders";
 import { parseNaturalInputFromLlm, type NluAction, type NluParseResult } from "./services/nluService";
 import { getFallbackRecommendation, getRecommendationsFromLlm } from "./services/recommendationService";
@@ -45,6 +46,22 @@ interface ChangeItem {
   detail: string;
 }
 
+const API_MODE_KEY = "poetry.api.mode";
+const defaultApiProfile = getDefaultApiProfile();
+const defaultApiAvailable = Boolean(defaultApiProfile);
+
+function loadApiMode(): "default" | "custom" {
+  const saved = localStorage.getItem(API_MODE_KEY);
+  if (saved === "default" || saved === "custom") {
+    return saved;
+  }
+  return defaultApiAvailable ? "default" : "custom";
+}
+
+function saveApiMode(mode: "default" | "custom"): void {
+  localStorage.setItem(API_MODE_KEY, mode);
+}
+
 const state = reactive({
   initialized: false,
   loading: false,
@@ -66,7 +83,9 @@ const state = reactive({
   hasNluDraft: false,
   rememberBrowserForDay: true,
   hasMasterPassword: false,
-  unlocked: false
+  unlocked: false,
+  defaultApiAvailable,
+  apiMode: loadApiMode()
 });
 
 let nluDraftActions: NluAction[] = [];
@@ -158,7 +177,23 @@ function setRememberBrowserForDay(enabled: boolean): void {
   state.rememberBrowserForDay = enabled;
 }
 
-async function getEnabledProviderWithKey(): Promise<{ config: ProviderConfig; apiKey: string }> {
+function setApiMode(mode: "default" | "custom"): void {
+  state.apiMode = mode;
+  saveApiMode(mode);
+}
+
+async function getEnabledProviderWithKey(): Promise<{ config: ProviderConfig; apiKey: string; source: "default" | "custom" }> {
+  if (state.apiMode === "default") {
+    if (!defaultApiProfile) {
+      throw new Error("默认 API 未配置完整（请设置 VITE_DEFAULT_API_*）");
+    }
+    return {
+      config: defaultApiProfile.config,
+      apiKey: defaultApiProfile.apiKey,
+      source: "default"
+    };
+  }
+
   if (!state.unlocked) {
     throw new Error("会话未解锁，请先在模型页解锁主密码");
   }
@@ -173,7 +208,11 @@ async function getEnabledProviderWithKey(): Promise<{ config: ProviderConfig; ap
   }
 
   const apiKey = await decryptSecret(enabledConfig.encryptedApiKey, enabledConfig.encryptedApiKeyIv);
-  return { config: enabledConfig, apiKey };
+  return {
+    config: enabledConfig,
+    apiKey,
+    source: "custom"
+  };
 }
 
 async function refreshAll(): Promise<void> {
@@ -569,27 +608,40 @@ async function testProvider(provider: ProviderName): Promise<void> {
 
   try {
     startLlm("正在请求模型连通性...");
-    if (!state.unlocked) {
-      throw new Error("当前会话未解锁，请先输入主密码。");
+
+    const source = state.apiMode === "default" ? "default" : "custom";
+    const targetProvider = source === "default" ? (defaultApiProfile?.config.provider || provider) : provider;
+
+    let config: ProviderConfig;
+    let apiKey: string;
+
+    if (source === "default") {
+      if (!defaultApiProfile) {
+        throw new Error("默认 API 未配置完整（请设置 VITE_DEFAULT_API_*）");
+      }
+      config = defaultApiProfile.config;
+      apiKey = defaultApiProfile.apiKey;
+    } else {
+      if (!state.unlocked) {
+        throw new Error("当前会话未解锁，请先输入主密码。");
+      }
+      const found = state.providerConfigs.find((item) => item.provider === provider);
+      if (!found) {
+        throw new Error(`未找到 ${provider} 配置。`);
+      }
+      if (!found.encryptedApiKey || !found.encryptedApiKeyIv) {
+        throw new Error(`模型 ${provider} 未保存 API Key。`);
+      }
+      config = found;
+      apiKey = await decryptSecret(found.encryptedApiKey, found.encryptedApiKeyIv);
     }
 
-    const config = state.providerConfigs.find((item) => item.provider === provider);
-    if (!config) {
-      throw new Error(`未找到 ${provider} 配置。`);
-    }
-
-    if (!config.encryptedApiKey || !config.encryptedApiKeyIv) {
-      throw new Error(`模型 ${provider} 未保存 API Key。`);
-    }
-
-    const apiKey = await decryptSecret(config.encryptedApiKey, config.encryptedApiKeyIv);
     const result = await testProviderConnection(config, apiKey);
-
     const snippet = result.body.slice(0, 600);
-    state.providerTestResult = `[${provider}] HTTP ${result.status}${result.ok ? " OK" : ""} | ${snippet}`;
+    state.providerTestResult = `[${targetProvider}] HTTP ${result.status}${result.ok ? " OK" : ""} | ${snippet}`;
   } catch (error) {
     const text = error instanceof Error ? error.message : String(error);
-    state.providerTestResult = `[${provider}] TEST FAILED | ${text}`;
+    state.providerTestResult = `[TEST FAILED] ${text}`;
   } finally {
     endLlm();
     state.loading = false;
@@ -608,7 +660,7 @@ async function recommend(): Promise<void> {
     }
 
     startLlm("正在让大模型生成推荐...");
-    const { config, apiKey } = await getEnabledProviderWithKey();
+    const { config, apiKey, source } = await getEnabledProviderWithKey();
 
     try {
       const llmResult = await getRecommendationsFromLlm({
@@ -620,11 +672,11 @@ async function recommend(): Promise<void> {
 
       const isEmpty = llmResult.review.length === 0 && llmResult.newLearning.length === 0;
       if (isEmpty) {
-        state.recommendationDebug = `LLM 调用成功但返回空推荐，已切换规则候选。来源：${config.provider}。`;
+        state.recommendationDebug = `LLM 调用成功但返回空推荐，已切换规则候选。来源：${config.provider}（${source}）。`;
         state.recommendation = getFallbackRecommendation(state.poems);
       } else {
         state.recommendation = llmResult;
-        state.recommendationDebug = `LLM 推荐成功，来源：${config.provider}。`;
+        state.recommendationDebug = `LLM 推荐成功，来源：${config.provider}（${source}）。`;
       }
     } catch (error) {
       const errorText = error instanceof Error ? error.message : String(error);
@@ -701,6 +753,7 @@ export function useAppStore() {
     confirmNaturalInput,
     clearNluDraft,
     setRememberBrowserForDay,
+    setApiMode,
     saveProviderConfig,
     setMasterPassword,
     unlock,

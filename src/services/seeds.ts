@@ -82,5 +82,13 @@ export const defaultProviderConfigs: ProviderConfig[] = [
     enabled: false,
     temperature: 0.3,
     keyAlias: "GLM Key"
+  },
+  {
+    provider: "custom",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-4o-mini",
+    enabled: false,
+    temperature: 0.3,
+    keyAlias: "Custom OpenAI-Compatible Key"
   }
 ];

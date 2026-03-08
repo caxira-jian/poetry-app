@@ -25,7 +25,10 @@ async function confirmSave() {
       <div class="muted">示例："今天晚上我把静夜思背完了，状态熟练"</div>
       <div class="muted">示例："刚背了春晓，算完成，时间是今天 21:30"</div>
       <textarea v-model="naturalInput" rows="5" placeholder="用口语说出你刚背完哪首诗、状态和时间" />
-      <button :disabled="props.store.state.loading" @click="parsePreview">{{ props.store.state.llmBusy ? "生成中..." : "让大模型先解析" }}</button>
+      <button :disabled="props.store.state.loading" @click="parsePreview">
+        <span v-if="props.store.state.loading">生成中<span class="dot-loop"><span>.</span><span>.</span><span>.</span></span></span>
+        <span v-else>让大模型先解析</span>
+      </button>
 
       <div v-if="props.store.state.hasNluDraft" class="preview">
         <div class="title">解析预览</div>
@@ -37,7 +40,10 @@ async function confirmSave() {
         <pre>{{ props.store.state.nluChangeItemsJson }}</pre>
 
         <div class="actions">
-          <button :disabled="props.store.state.loading" @click="confirmSave">确认入库</button>
+          <button :disabled="props.store.state.loading" @click="confirmSave">
+            <span v-if="props.store.state.loading">生成中<span class="dot-loop"><span>.</span><span>.</span><span>.</span></span></span>
+            <span v-else>确认入库</span>
+          </button>
           <button class="secondary" :disabled="props.store.state.loading" @click="props.store.clearNluDraft">取消</button>
         </div>
       </div>

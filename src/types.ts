@@ -1,7 +1,7 @@
 export type LearnIntent = "known" | "learning" | "wishlist";
 export type ReciteStatus = "completed" | "proficient";
 export type CurrentStatus = "none" | "completed" | "proficient";
-export type ProviderName = "qwen" | "deepseek" | "glm";
+export type ProviderName = "qwen" | "deepseek" | "glm" | "custom";
 
 export interface Poem {
   id: string;
@@ -55,3 +55,4 @@ export interface ExportData {
   reciteLogs: ReciteLog[];
   providerConfigs: ProviderConfig[];
 }
+

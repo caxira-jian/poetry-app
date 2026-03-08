@@ -49,7 +49,7 @@ onMounted(() => {
 
     <main>
       <div v-if="store.state.error" class="error">{{ store.state.error }}</div>
-      <div v-if="store.state.llmBusy" class="busy">生成中：{{ store.state.llmTask || "请稍候..." }}</div>
+      <div v-if="store.state.llmBusy" class="busy">生成中：{{ store.state.llmTask || "请稍候" }}<span class="dot-loop"><span>.</span><span>.</span><span>.</span></span></div>
       <component :is="pageComponent" :store="store" />
     </main>
 
@@ -136,3 +136,4 @@ main {
   color: #fff;
 }
 </style>
+

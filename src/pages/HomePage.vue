@@ -21,11 +21,13 @@ async function requestRecommendation() {
   <section class="page">
     <div class="card grid">
       <div class="muted">推荐来源：{{ props.store.state.recommendation?.source || "尚未生成" }}</div>
-      <div class="muted">模型会话：{{ props.store.state.unlocked ? "已解锁" : "已锁定" }}</div>
+      <div class="muted">API 模式：{{ props.store.state.apiMode === "default" ? "默认 API" : "自定义 API" }}</div>
+      <div class="muted" v-if="props.store.state.apiMode === 'custom'">模型会话：{{ props.store.state.unlocked ? "已解锁" : "已锁定" }}</div>
       <div v-if="props.store.state.recommendationDebug" class="muted">说明：{{ props.store.state.recommendationDebug }}</div>
       <div v-if="props.store.stats.value.total === 0" class="muted">当前诗库为空，请先到“数据”页初始化种子诗库。</div>
       <button :disabled="props.store.state.loading" @click="requestRecommendation">
-        {{ props.store.state.loading ? "生成中..." : "生成今日推荐" }}
+        <span v-if="props.store.state.loading">生成中<span class="dot-loop"><span>.</span><span>.</span><span>.</span></span></span>
+        <span v-else>生成今日推荐</span>
       </button>
     </div>
 

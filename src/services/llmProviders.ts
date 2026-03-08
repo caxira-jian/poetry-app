@@ -82,5 +82,6 @@ export async function testProviderConnection(config: ProviderConfig, apiKey: str
 export const providerLabel: Record<ProviderName, string> = {
   qwen: "Qwen",
   deepseek: "DeepSeek",
-  glm: "GLM"
+  glm: "GLM",
+  custom: "Custom"
 };

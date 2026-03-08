@@ -50,6 +50,33 @@ async function testConfig(config: ProviderConfig) {
 <template>
   <section class="page">
     <div class="card grid">
+      <h3>API 模式</h3>
+      <label class="row">
+        <input
+          type="radio"
+          name="apiMode"
+          value="default"
+          :checked="props.store.state.apiMode === 'default'"
+          :disabled="!props.store.state.defaultApiAvailable"
+          @change="props.store.setApiMode('default')"
+        />
+        <span>默认 API 兜底</span>
+      </label>
+      <label class="row">
+        <input
+          type="radio"
+          name="apiMode"
+          value="custom"
+          :checked="props.store.state.apiMode === 'custom'"
+          @change="props.store.setApiMode('custom')"
+        />
+        <span>自定义 API（我的 key + 模型）</span>
+      </label>
+      <div v-if="props.store.state.defaultApiAvailable" class="muted">默认 API 已配置（来自本地环境变量），可直接作为兜底。</div>
+      <div v-else class="muted">默认 API 未配置完整，请在部署环境设置 `VITE_DEFAULT_API_*`。</div>
+    </div>
+
+    <div class="card grid" v-if="props.store.state.apiMode === 'custom'">
       <h3>主密码</h3>
       <div class="muted">状态：{{ props.store.state.unlocked ? "已解锁" : "已锁定" }}</div>
       <label class="row">
@@ -60,22 +87,28 @@ async function testConfig(config: ProviderConfig) {
         />
         <span>记住此浏览器 1 天（减少重复输入）</span>
       </label>
-      <div class="muted">需要重新输入密码的场景：首次访问、手动锁定并清除记住、超过 1 天、清理浏览器存储。</div>
+      <div class="muted">需要重新输入密码：首次访问、超过 1 天、清理浏览器存储、或手动“锁定并清除记住”。</div>
 
       <template v-if="!props.store.state.hasMasterPassword">
         <input v-model="passwordInput.init" type="password" placeholder="初始化主密码" />
-        <button :disabled="props.store.state.loading" @click="initPassword">设置主密码</button>
+        <button :disabled="props.store.state.loading" @click="initPassword">
+          <span v-if="props.store.state.loading">生成中<span class="dot-loop"><span>.</span><span>.</span><span>.</span></span></span>
+          <span v-else>设置主密码</span>
+        </button>
       </template>
 
       <template v-else>
         <input v-model="passwordInput.unlock" type="password" placeholder="输入主密码解锁" />
-        <button :disabled="props.store.state.loading" @click="unlock">解锁</button>
+        <button :disabled="props.store.state.loading" @click="unlock">
+          <span v-if="props.store.state.loading">生成中<span class="dot-loop"><span>.</span><span>.</span><span>.</span></span></span>
+          <span v-else>解锁</span>
+        </button>
         <button class="secondary" @click="props.store.lock(false)">锁定（保留1天记住）</button>
         <button class="secondary" @click="props.store.lock(true)">锁定并清除记住</button>
       </template>
     </div>
 
-    <div class="card">
+    <div class="card" v-if="props.store.state.apiMode === 'custom'">
       <h3>模型配置</h3>
       <div class="grid">
         <div v-for="config in props.store.state.providerConfigs" :key="config.provider" class="item grid">
@@ -101,12 +134,30 @@ async function testConfig(config: ProviderConfig) {
             <span>启用为推荐来源</span>
           </label>
           <div class="actions">
-            <button :disabled="props.store.state.loading || !props.store.state.unlocked" @click="saveConfig(config)">保存配置</button>
-            <button class="secondary" :disabled="props.store.state.loading || !props.store.state.unlocked" @click="testConfig(config)">测试连接</button>
+            <button :disabled="props.store.state.loading || !props.store.state.unlocked" @click="saveConfig(config)">
+              <span v-if="props.store.state.loading">生成中<span class="dot-loop"><span>.</span><span>.</span><span>.</span></span></span>
+              <span v-else>保存配置</span>
+            </button>
+            <button class="secondary" :disabled="props.store.state.loading || !props.store.state.unlocked" @click="testConfig(config)">
+              <span v-if="props.store.state.loading">生成中<span class="dot-loop"><span>.</span><span>.</span><span>.</span></span></span>
+              <span v-else>测试连接</span>
+            </button>
           </div>
         </div>
       </div>
       <div class="muted">提示：仅在解锁后可保存 API Key。</div>
+      <div v-if="props.store.state.providerTestResult" class="result">
+        {{ props.store.state.providerTestResult }}
+      </div>
+    </div>
+
+    <div class="card" v-else>
+      <h3>默认 API</h3>
+      <div class="muted">当前使用默认 API 兜底。你可以直接去“今日推荐/诗库/记录”页面使用大模型能力。</div>
+      <button class="secondary" :disabled="props.store.state.loading" @click="props.store.testProvider('glm')">
+        <span v-if="props.store.state.loading">生成中<span class="dot-loop"><span>.</span><span>.</span><span>.</span></span></span>
+        <span v-else>测试默认 API 连通性</span>
+      </button>
       <div v-if="props.store.state.providerTestResult" class="result">
         {{ props.store.state.providerTestResult }}
       </div>
