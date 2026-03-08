@@ -1,6 +1,6 @@
 /**
- * Centralized prompt definitions for all LLM interactions.
- * Keep every system/user prompt here so product tuning only changes one file.
+ * 统一管理所有大模型提示词。
+ * 以后调优提示词时，只需要改这个文件。
  */
 
 import type { Poem, ReciteLog } from "../src/types";
@@ -9,27 +9,27 @@ export const RECENT_LOG_LIMIT = 40;
 
 export const LLM_PROMPTS = {
   /**
-   * Scenario: Provider connectivity test on model config page and default API proxy test.
-   * Goal: Send a minimal request to verify API is reachable.
+   * 场景：模型配置页测试连接、默认 API 代理测试连接。
+   * 目标：发送最小请求，验证 API 通路是否可用。
    */
   connectivityPingUser: "ping",
 
   /**
-   * Scenario: Natural-language input parsing for poem library/recite pages.
-   * Goal: Force strict executable JSON actions.
+   * 场景：诗库页/背诵页的口语输入解析。
+   * 目标：强制返回可执行的严格 JSON 动作。
    */
   nluSystem: "你只输出合法 JSON，且动作必须可执行。",
 
   /**
-   * Scenario: Daily recommendation generation.
-   * Goal: Force strict JSON with review/newLearning arrays.
+   * 场景：首页今日推荐生成。
+   * 目标：强制返回 review/newLearning 结构的严格 JSON。
    */
   recommendationSystem: "你是严谨的学习助手。输出纯 JSON。"
 } as const;
 
 /**
- * Scenario: NLU user prompt template.
- * Input: raw user text + full poem library snapshot for de-duplication.
+ * 场景：口语解析（NLU）用户提示词模板。
+ * 输入：用户原始文本 + 全量诗库快照（用于去重判断）。
  */
 export function buildNluUserPrompt(params: {
   text: string;
@@ -68,8 +68,8 @@ export function buildNluUserPrompt(params: {
 }
 
 /**
- * Scenario: Recommendation user prompt template.
- * Input: poem snapshot + recent recite logs.
+ * 场景：今日推荐用户提示词模板。
+ * 输入：诗库快照 + 最近背诵记录。
  */
 export function buildRecommendationUserPrompt(poems: Poem[], logs: ReciteLog[]): string {
   const payload = {

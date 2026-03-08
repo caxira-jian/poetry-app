@@ -164,7 +164,7 @@ async function appendLog(entry: LogEntry): Promise<void> {
     await mkdir(dirname(filePath), { recursive: true });
     await appendFile(filePath, line, "utf-8");
   } catch {
-    // do not break main flow when log write fails
+    // 日志写入失败不应影响主流程
   }
   console.log(`[llm-latency] ${line.trim()}`);
 }
@@ -324,4 +324,5 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     });
   }
 }
+
 
