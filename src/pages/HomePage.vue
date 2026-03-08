@@ -23,7 +23,7 @@ async function requestRecommendation() {
       <div class="muted">推荐来源：{{ props.store.state.recommendation?.source || "尚未生成" }}</div>
       <div class="muted">API 模式：{{ props.store.state.apiMode === "default" ? "默认 API" : "自定义 API" }}</div>
       <div class="muted" v-if="props.store.state.apiMode === 'custom'">模型会话：{{ props.store.state.unlocked ? "已解锁" : "已锁定" }}</div>
-      <div v-if="props.store.state.recommendationDebug" class="muted">说明：{{ props.store.state.recommendationDebug }}</div>
+      <div v-if="props.store.state.recommendationDebug" class="muted multiline">说明：{{ props.store.state.recommendationDebug }}</div>
       <div v-if="props.store.stats.value.total === 0" class="muted">当前诗库为空，请先到“数据”页初始化种子诗库。</div>
       <button :disabled="props.store.state.loading" @click="requestRecommendation">
         <span v-if="props.store.state.loading">生成中<span class="dot-loop"><span>.</span><span>.</span><span>.</span></span></span>
@@ -37,7 +37,7 @@ async function requestRecommendation() {
       <ul v-else>
         <li v-for="item in props.store.state.recommendation.review" :key="item.poemId">
           {{ poemMap.get(item.poemId) || item.poemId }}
-          <div class="muted">{{ item.reason }}</div>
+          <div class="muted multiline">{{ item.reason }}</div>
         </li>
       </ul>
     </div>
@@ -48,7 +48,7 @@ async function requestRecommendation() {
       <ul v-else>
         <li v-for="item in props.store.state.recommendation.newLearning" :key="item.poemId">
           {{ poemMap.get(item.poemId) || item.poemId }}
-          <div class="muted">{{ item.reason }}</div>
+          <div class="muted multiline">{{ item.reason }}</div>
         </li>
       </ul>
     </div>
@@ -67,5 +67,10 @@ ul {
 
 li {
   margin-bottom: 8px;
+}
+
+.multiline {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 </style>
