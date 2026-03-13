@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import type { Poem } from "../types";
 import type { useAppStore } from "../useAppStore";
 
 const props = defineProps<{ poem: Poem; store: ReturnType<typeof useAppStore> }>();
 
 const showConfirm = ref(false);
-let viewTimer: number | null = null;
-let countedView = false;
 
 const formattedContent = computed(() => {
   const raw = props.poem.content || "";
@@ -22,34 +20,13 @@ const lastRecitedText = computed(() => {
   return props.poem.lastRecitedAt ? new Date(props.poem.lastRecitedAt).toLocaleString() : "暂无";
 });
 
-function startViewTimer() {
-  if (countedView) {
-    return;
-  }
-  viewTimer = window.setTimeout(async () => {
-    countedView = true;
-    await props.store.markPoemViewed(props.poem.id);
-  }, 10000);
-}
-
-function stopViewTimer() {
-  if (viewTimer !== null) {
-    window.clearTimeout(viewTimer);
-    viewTimer = null;
-  }
-}
-
 async function confirmRecite() {
   showConfirm.value = false;
   await props.store.markPoemRecitedToday(props.poem.id);
 }
 
 onMounted(() => {
-  startViewTimer();
-});
-
-onUnmounted(() => {
-  stopViewTimer();
+  void props.store.markPoemViewed(props.poem.id);
 });
 </script>
 
