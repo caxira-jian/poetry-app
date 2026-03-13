@@ -8,8 +8,19 @@ function byDateDesc(a: ReciteLog, b: ReciteLog): number {
   return new Date(b.recitedAt).getTime() - new Date(a.recitedAt).getTime();
 }
 
+function normalizePoem(poem: Poem): Poem {
+  return {
+    ...poem,
+    tags: Array.isArray(poem.tags) ? poem.tags : [],
+    masteryLevel: Number.isFinite(poem.masteryLevel) ? poem.masteryLevel : 0,
+    reciteCount: Number.isFinite(poem.reciteCount) ? poem.reciteCount : 0,
+    viewCount: Number.isFinite(poem.viewCount) ? poem.viewCount : 0
+  };
+}
+
 export async function getPoems(): Promise<Poem[]> {
-  return getAll<Poem>("poems");
+  const poems = await getAll<Poem>("poems");
+  return poems.map(normalizePoem);
 }
 
 export async function getReciteLogs(): Promise<ReciteLog[]> {
@@ -18,11 +29,11 @@ export async function getReciteLogs(): Promise<ReciteLog[]> {
 }
 
 export async function savePoem(poem: Poem): Promise<void> {
-  await putOne("poems", poem);
+  await putOne("poems", normalizePoem(poem));
 }
 
 export async function savePoems(poems: Poem[]): Promise<void> {
-  await putMany("poems", poems);
+  await putMany("poems", poems.map(normalizePoem));
 }
 
 export async function addReciteLog(log: ReciteLog): Promise<void> {

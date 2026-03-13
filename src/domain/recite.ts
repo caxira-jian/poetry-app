@@ -17,6 +17,7 @@ export function applyReciteResult(
     ...poem,
     currentStatus: status,
     masteryLevel: nextMastery,
+    reciteCount: (poem.reciteCount || 0) + 1,
     lastRecitedAt: recitedAt
   };
 }

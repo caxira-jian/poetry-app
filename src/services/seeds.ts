@@ -10,7 +10,9 @@ export const seedPoems: Poem[] = [
     tags: ["思乡", "入门"],
     learnIntent: "learning",
     currentStatus: "none",
-    masteryLevel: 0
+    masteryLevel: 0,
+    reciteCount: 0,
+    viewCount: 0
   },
   {
     id: "poem-chuntian",
@@ -21,7 +23,9 @@ export const seedPoems: Poem[] = [
     tags: ["春天", "入门"],
     learnIntent: "learning",
     currentStatus: "none",
-    masteryLevel: 0
+    masteryLevel: 0,
+    reciteCount: 0,
+    viewCount: 0
   },
   {
     id: "poem-dengguanquelou",
@@ -32,7 +36,10 @@ export const seedPoems: Poem[] = [
     tags: ["励志"],
     learnIntent: "known",
     currentStatus: "completed",
-    masteryLevel: 2
+    masteryLevel: 2,
+    reciteCount: 1,
+    viewCount: 0,
+    lastRecitedAt: new Date().toISOString()
   },
   {
     id: "poem-youziyin",
@@ -43,7 +50,9 @@ export const seedPoems: Poem[] = [
     tags: ["亲情"],
     learnIntent: "wishlist",
     currentStatus: "none",
-    masteryLevel: 0
+    masteryLevel: 0,
+    reciteCount: 0,
+    viewCount: 0
   },
   {
     id: "poem-chibi",
@@ -54,7 +63,9 @@ export const seedPoems: Poem[] = [
     tags: ["历史"],
     learnIntent: "wishlist",
     currentStatus: "none",
-    masteryLevel: 0
+    masteryLevel: 0,
+    reciteCount: 0,
+    viewCount: 0
   }
 ];
 

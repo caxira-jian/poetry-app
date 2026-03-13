@@ -88,7 +88,8 @@ const state = reactive({
   hasMasterPassword: false,
   unlocked: false,
   defaultApiAvailable,
-  apiMode: loadApiMode()
+  apiMode: loadApiMode(),
+  selectedPoemId: "" as string
 });
 
 let nluDraftActions: NluAction[] = [];
@@ -121,6 +122,19 @@ function normalizeIso(input?: string): string {
   }
   const value = new Date(input);
   return Number.isNaN(value.getTime()) ? new Date().toISOString() : value.toISOString();
+}
+
+function isSameLocalDay(left?: string, right?: string): boolean {
+  if (!left || !right) {
+    return false;
+  }
+  const a = new Date(left);
+  const b = new Date(right);
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
 }
 
 function poemIdFrom(title: string, author: string): string {
@@ -160,7 +174,9 @@ function ensurePoem(poems: Poem[], title: string, author?: string): Poem {
     tags: [],
     learnIntent: "wishlist",
     currentStatus: "none",
-    masteryLevel: 0
+    masteryLevel: 0,
+    reciteCount: 0,
+    viewCount: 0
   };
   poems.push(next);
   return next;
@@ -183,6 +199,19 @@ function setRememberBrowserForDay(enabled: boolean): void {
 function setApiMode(mode: ApiMode): void {
   state.apiMode = mode;
   saveApiMode(mode);
+}
+
+function openPoemDetail(poemId: string): void {
+  state.selectedPoemId = poemId;
+}
+
+function closePoemDetail(): void {
+  state.selectedPoemId = "";
+}
+
+function hasRecitedToday(poemId: string): boolean {
+  const poem = state.poems.find((item) => item.id === poemId);
+  return isSameLocalDay(poem?.lastRecitedAt, new Date().toISOString());
 }
 
 async function getCustomProviderWithKey(): Promise<{ config: ProviderConfig; apiKey: string }> {
@@ -215,6 +244,9 @@ async function refreshAll(): Promise<void> {
   state.providerConfigs = providerConfigs;
   state.hasMasterPassword = hasMaster;
   state.unlocked = isSessionUnlocked();
+  if (state.selectedPoemId && !state.poems.some((item) => item.id === state.selectedPoemId)) {
+    state.selectedPoemId = "";
+  }
 }
 
 async function init(): Promise<void> {
@@ -301,6 +333,35 @@ async function recordRecite(params: {
   } finally {
     state.loading = false;
   }
+}
+
+async function markPoemViewed(poemId: string): Promise<void> {
+  const poem = state.poems.find((item) => item.id === poemId);
+  if (!poem) {
+    return;
+  }
+
+  try {
+    await savePoem({
+      ...poem,
+      viewCount: (poem.viewCount || 0) + 1
+    });
+    await refreshAll();
+  } catch (error) {
+    setError(error);
+  }
+}
+
+async function markPoemRecitedToday(poemId: string): Promise<void> {
+  if (hasRecitedToday(poemId)) {
+    return;
+  }
+  await recordRecite({
+    poemId,
+    status: "completed",
+    recitedAt: new Date().toISOString(),
+    note: "详情页背诵打卡"
+  });
 }
 
 function applyNluAction(poems: Poem[], logs: ReciteLog[], action: NluAction, changes: ChangeItem[]): void {
@@ -395,7 +456,7 @@ function applyNluAction(poems: Poem[], logs: ReciteLog[], action: NluAction, cha
     changes.push({
       kind: "修改",
       target: formatTarget(nextPoem.title, nextPoem.author),
-      detail: `新增背诵记录并将状态更新为 ${action.status}。`
+      detail: `新增背诵记录并将背诵次数更新为 ${nextPoem.reciteCount}。`
     });
   }
 }
@@ -742,15 +803,23 @@ const stats = computed(() => {
   };
 });
 
+const selectedPoem = computed(() => state.poems.find((item) => item.id === state.selectedPoemId) || null);
+
 export function useAppStore() {
   return {
     state,
     stats,
+    selectedPoem,
     init,
     ensureSeedPoems,
     upsertPoem,
     upsertPoems,
     recordRecite,
+    markPoemViewed,
+    markPoemRecitedToday,
+    hasRecitedToday,
+    openPoemDetail,
+    closePoemDetail,
     processNaturalInput,
     parseNaturalInputPreview,
     confirmNaturalInput,

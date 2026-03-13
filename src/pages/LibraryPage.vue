@@ -29,6 +29,10 @@ function isExpanded(poemId: string) {
 function shouldShowToggle(content: string) {
   return content.length > 42 || content.includes("\n");
 }
+
+function formatLastRecitedAt(value?: string) {
+  return value ? new Date(value).toLocaleString() : "暂无";
+}
 </script>
 
 <template>
@@ -68,19 +72,25 @@ function shouldShowToggle(content: string) {
       <h3>诗库（{{ props.store.state.poems.length }}）</h3>
       <div class="grid">
         <div v-for="poem in props.store.state.poems" :key="poem.id" class="item">
-          <div class="title">{{ poem.title }} · {{ poem.author }}</div>
-          <div class="muted">{{ poem.dynasty || "-" }} | 意向 {{ poem.learnIntent }} | 熟练度 {{ poem.masteryLevel }}</div>
+          <button class="poem-link" type="button" @click="props.store.openPoemDetail(poem.id)">
+            <div class="title">{{ poem.title }} · {{ poem.author }}</div>
+          </button>
+          <div class="muted">{{ poem.dynasty || "-" }} | 背诵次数 {{ poem.reciteCount }} | 浏览次数 {{ poem.viewCount }}</div>
+          <div class="muted">最近背诵时间 {{ formatLastRecitedAt(poem.lastRecitedAt) }}</div>
           <div :class="['poem-content', { collapsed: !isExpanded(poem.id) }]" class="muted">
             {{ poem.content }}
           </div>
-          <button
-            v-if="shouldShowToggle(poem.content)"
-            class="text-button"
-            type="button"
-            @click="togglePoem(poem.id)"
-          >
-            {{ isExpanded(poem.id) ? "收起" : "展开全文" }}
-          </button>
+          <div class="item-actions">
+            <button
+              v-if="shouldShowToggle(poem.content)"
+              class="text-button"
+              type="button"
+              @click="togglePoem(poem.id)"
+            >
+              {{ isExpanded(poem.id) ? "收起" : "展开全文" }}
+            </button>
+            <button class="text-button" type="button" @click="props.store.openPoemDetail(poem.id)">查看详情</button>
+          </div>
         </div>
       </div>
     </div>
@@ -122,6 +132,13 @@ function shouldShowToggle(content: string) {
   margin-bottom: 6px;
 }
 
+.poem-link {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
 .poem-content {
   margin-top: 4px;
   line-height: 1.8;
@@ -134,6 +151,12 @@ function shouldShowToggle(content: string) {
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.item-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .text-button {

@@ -5,6 +5,7 @@ import LibraryPage from "./pages/LibraryPage.vue";
 import RecitePage from "./pages/RecitePage.vue";
 import ModelPage from "./pages/ModelPage.vue";
 import DataPage from "./pages/DataPage.vue";
+import PoemDetailPage from "./pages/PoemDetailPage.vue";
 import { useAppStore } from "./useAppStore";
 
 const store = useAppStore();
@@ -41,28 +42,34 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="app-shell">
-    <header class="header">
-      <h1>古诗背诵助手</h1>
-      <div class="muted">总诗词 {{ store.stats.value.total }} · 熟练 {{ store.stats.value.proficientCount }} · 记录 {{ store.stats.value.logs }}</div>
-    </header>
+  <div class="app-shell" :class="{ detail: !!store.selectedPoem.value }">
+    <template v-if="store.selectedPoem.value">
+      <PoemDetailPage :poem="store.selectedPoem.value" :store="store" />
+    </template>
 
-    <main>
-      <div v-if="store.state.error" class="error">{{ store.state.error }}</div>
-      <div v-if="store.state.llmBusy" class="busy">生成中：{{ store.state.llmTask || "请稍候" }}<span class="dot-loop"><span>.</span><span>.</span><span>.</span></span></div>
-      <component :is="pageComponent" :store="store" />
-    </main>
+    <template v-else>
+      <header class="header">
+        <h1>古诗背诵助手</h1>
+        <div class="muted">总诗词 {{ store.stats.value.total }} · 熟练 {{ store.stats.value.proficientCount }} · 记录 {{ store.stats.value.logs }}</div>
+      </header>
 
-    <nav class="tabbar">
-      <button
-        v-for="tab in tabs"
-        :key="tab.id"
-        :class="{ active: current === tab.id }"
-        @click="current = tab.id"
-      >
-        {{ tab.label }}
-      </button>
-    </nav>
+      <main>
+        <div v-if="store.state.error" class="error">{{ store.state.error }}</div>
+        <div v-if="store.state.llmBusy" class="busy">生成中：{{ store.state.llmTask || "请稍候" }}<span class="dot-loop"><span>.</span><span>.</span><span>.</span></span></div>
+        <component :is="pageComponent" :store="store" />
+      </main>
+
+      <nav class="tabbar">
+        <button
+          v-for="tab in tabs"
+          :key="tab.id"
+          :class="{ active: current === tab.id }"
+          @click="current = tab.id"
+        >
+          {{ tab.label }}
+        </button>
+      </nav>
+    </template>
   </div>
 </template>
 
@@ -72,6 +79,10 @@ onMounted(() => {
   margin: 0 auto;
   padding: 10px 12px 0;
   min-height: 100vh;
+}
+
+.app-shell.detail {
+  padding-top: 0;
 }
 
 .header {
@@ -136,4 +147,3 @@ main {
   color: #fff;
 }
 </style>
-

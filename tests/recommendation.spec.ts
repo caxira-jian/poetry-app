@@ -13,7 +13,9 @@ describe("buildFallbackRecommendation", () => {
         tags: [],
         learnIntent: "learning",
         currentStatus: "none",
-        masteryLevel: 0
+        masteryLevel: 0,
+        reciteCount: 0,
+        viewCount: 0
       },
       {
         id: "p2",
@@ -23,7 +25,9 @@ describe("buildFallbackRecommendation", () => {
         tags: [],
         learnIntent: "wishlist",
         currentStatus: "none",
-        masteryLevel: 0
+        masteryLevel: 0,
+        reciteCount: 0,
+        viewCount: 0
       }
     ];
 

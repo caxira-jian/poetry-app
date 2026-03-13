@@ -12,12 +12,15 @@ describe("applyReciteResult", () => {
       tags: [],
       learnIntent: "learning",
       currentStatus: "none",
-      masteryLevel: 0
+      masteryLevel: 0,
+      reciteCount: 0,
+      viewCount: 0
     };
 
     const next = applyReciteResult(poem, "proficient", "2026-03-07T10:00:00.000Z");
     expect(next.currentStatus).toBe("proficient");
     expect(next.masteryLevel).toBe(2);
+    expect(next.reciteCount).toBe(1);
     expect(next.lastRecitedAt).toBe("2026-03-07T10:00:00.000Z");
   });
 });

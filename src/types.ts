@@ -13,6 +13,8 @@ export interface Poem {
   learnIntent: LearnIntent;
   currentStatus: CurrentStatus;
   masteryLevel: number;
+  reciteCount: number;
+  viewCount: number;
   lastRecitedAt?: string;
 }
 
@@ -55,4 +57,3 @@ export interface ExportData {
   reciteLogs: ReciteLog[];
   providerConfigs: ProviderConfig[];
 }
-
