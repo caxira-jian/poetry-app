@@ -10,6 +10,10 @@ const DB_VERSION = 1;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
+function toSerializable<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
 function wrapRequest<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
@@ -66,7 +70,7 @@ export async function getAll<T>(storeName: StoreName): Promise<T[]> {
 export async function putOne<T>(storeName: StoreName, value: T): Promise<void> {
   const db = await openDb();
   const tx = db.transaction(storeName, "readwrite");
-  tx.objectStore(storeName).put(value as any);
+  tx.objectStore(storeName).put(toSerializable(value) as any);
   await wrapTransaction(tx);
 }
 
@@ -74,7 +78,7 @@ export async function putMany<T>(storeName: StoreName, values: T[]): Promise<voi
   const db = await openDb();
   const tx = db.transaction(storeName, "readwrite");
   const store = tx.objectStore(storeName);
-  values.forEach((value) => store.put(value as any));
+  values.forEach((value) => store.put(toSerializable(value) as any));
   await wrapTransaction(tx);
 }
 
