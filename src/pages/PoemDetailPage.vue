@@ -4,6 +4,7 @@ import type { Poem } from "../types";
 import type { useAppStore } from "../useAppStore";
 
 const props = defineProps<{ poem: Poem; store: ReturnType<typeof useAppStore> }>();
+const emit = defineEmits<{ back: [] }>();
 
 const showConfirm = ref(false);
 
@@ -33,7 +34,7 @@ onMounted(() => {
 <template>
   <section class="detail-page">
     <header class="detail-nav">
-      <button class="nav-back" type="button" @click="props.store.closePoemDetail">返回</button>
+      <button class="nav-back" type="button" @click="emit('back')">返回</button>
       <div class="nav-title">诗词详情</div>
       <div class="nav-placeholder"></div>
     </header>

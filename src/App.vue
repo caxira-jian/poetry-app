@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import HomePage from "./pages/HomePage.vue";
 import LibraryPage from "./pages/LibraryPage.vue";
 import RecitePage from "./pages/RecitePage.vue";
@@ -9,6 +9,7 @@ import PoemDetailPage from "./pages/PoemDetailPage.vue";
 import { useAppStore } from "./useAppStore";
 
 const store = useAppStore();
+const APP_HISTORY_KEY = "poetry-app";
 
 const tabs = [
   { id: "home", label: "今日" },
@@ -19,7 +20,74 @@ const tabs = [
 ] as const;
 
 type TabId = (typeof tabs)[number]["id"];
+type AppHistoryState = {
+  __app: typeof APP_HISTORY_KEY;
+  view: "main" | "detail";
+  tab: TabId;
+  poemId?: string;
+};
+
 const current = ref<TabId>("home");
+let syncingFromHistory = false;
+
+function isTabId(value: unknown): value is TabId {
+  return typeof value === "string" && tabs.some((tab) => tab.id === value);
+}
+
+function isAppHistoryState(value: unknown): value is AppHistoryState {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const candidate = value as Partial<AppHistoryState>;
+  return candidate.__app === APP_HISTORY_KEY && isTabId(candidate.tab) && (candidate.view === "main" || candidate.view === "detail");
+}
+
+function buildMainState(tab: TabId): AppHistoryState {
+  return {
+    __app: APP_HISTORY_KEY,
+    view: "main",
+    tab
+  };
+}
+
+function buildDetailState(tab: TabId, poemId: string): AppHistoryState {
+  return {
+    __app: APP_HISTORY_KEY,
+    view: "detail",
+    tab,
+    poemId
+  };
+}
+
+function syncFromHistoryState(historyState: unknown): void {
+  syncingFromHistory = true;
+  const nextState = isAppHistoryState(historyState) ? historyState : buildMainState(current.value);
+
+  if (current.value !== nextState.tab) {
+    current.value = nextState.tab;
+  }
+
+  if (nextState.view === "detail" && nextState.poemId) {
+    store.openPoemDetail(nextState.poemId);
+  } else {
+    store.closePoemDetail();
+  }
+
+  syncingFromHistory = false;
+}
+
+function handlePopState(event: PopStateEvent): void {
+  syncFromHistoryState(event.state);
+}
+
+function closeDetailWithHistory(): void {
+  if (isAppHistoryState(window.history.state) && window.history.state.view === "detail") {
+    window.history.back();
+    return;
+  }
+  store.closePoemDetail();
+  window.history.replaceState(buildMainState(current.value), "");
+}
 
 const pageComponent = computed(() => {
   switch (current.value) {
@@ -36,15 +104,54 @@ const pageComponent = computed(() => {
   }
 });
 
+watch(current, (tab) => {
+  if (syncingFromHistory) {
+    return;
+  }
+  if (store.state.selectedPoemId) {
+    window.history.replaceState(buildDetailState(tab, store.state.selectedPoemId), "");
+    return;
+  }
+  window.history.replaceState(buildMainState(tab), "");
+});
+
+watch(
+  () => store.state.selectedPoemId,
+  (nextPoemId, previousPoemId) => {
+    if (syncingFromHistory) {
+      return;
+    }
+
+    if (nextPoemId && !previousPoemId) {
+      window.history.pushState(buildDetailState(current.value, nextPoemId), "");
+      return;
+    }
+
+    if (!nextPoemId) {
+      window.history.replaceState(buildMainState(current.value), "");
+    }
+  }
+);
+
 onMounted(() => {
   void store.init();
+  const initialState = isAppHistoryState(window.history.state)
+    ? window.history.state
+    : buildMainState(current.value);
+  window.history.replaceState(initialState, "");
+  syncFromHistoryState(initialState);
+  window.addEventListener("popstate", handlePopState);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("popstate", handlePopState);
 });
 </script>
 
 <template>
   <div class="app-shell" :class="{ detail: !!store.selectedPoem.value }">
     <template v-if="store.selectedPoem.value">
-      <PoemDetailPage :poem="store.selectedPoem.value" :store="store" />
+      <PoemDetailPage :poem="store.selectedPoem.value" :store="store" @back="closeDetailWithHistory" />
     </template>
 
     <template v-else>
