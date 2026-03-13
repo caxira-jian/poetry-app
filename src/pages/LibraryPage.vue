@@ -5,6 +5,7 @@ import type { useAppStore } from "../useAppStore";
 const props = defineProps<{ store: ReturnType<typeof useAppStore> }>();
 
 const naturalInput = ref("");
+const expandedPoems = ref<Record<string, boolean>>({});
 
 async function parsePreview() {
   await props.store.parseNaturalInputPreview(naturalInput.value);
@@ -15,6 +16,18 @@ async function confirmSave() {
   if (!props.store.state.error) {
     naturalInput.value = "";
   }
+}
+
+function togglePoem(poemId: string) {
+  expandedPoems.value[poemId] = !expandedPoems.value[poemId];
+}
+
+function isExpanded(poemId: string) {
+  return Boolean(expandedPoems.value[poemId]);
+}
+
+function shouldShowToggle(content: string) {
+  return content.length > 42 || content.includes("\n");
 }
 </script>
 
@@ -57,7 +70,17 @@ async function confirmSave() {
         <div v-for="poem in props.store.state.poems" :key="poem.id" class="item">
           <div class="title">{{ poem.title }} · {{ poem.author }}</div>
           <div class="muted">{{ poem.dynasty || "-" }} | 意向 {{ poem.learnIntent }} | 熟练度 {{ poem.masteryLevel }}</div>
-          <div class="muted">{{ poem.content.slice(0, 60) }}{{ poem.content.length > 60 ? "..." : "" }}</div>
+          <div :class="['poem-content', { collapsed: !isExpanded(poem.id) }]" class="muted">
+            {{ poem.content }}
+          </div>
+          <button
+            v-if="shouldShowToggle(poem.content)"
+            class="text-button"
+            type="button"
+            @click="togglePoem(poem.id)"
+          >
+            {{ isExpanded(poem.id) ? "收起" : "展开全文" }}
+          </button>
         </div>
       </div>
     </div>
@@ -97,6 +120,31 @@ async function confirmSave() {
 .title {
   font-weight: 700;
   margin-bottom: 6px;
+}
+
+.poem-content {
+  margin-top: 4px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.poem-content.collapsed {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.text-button {
+  margin-top: 6px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--primary);
+  font-size: 13px;
+  text-align: left;
 }
 
 h3 {
