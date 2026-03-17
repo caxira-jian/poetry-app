@@ -12,7 +12,8 @@ export const seedPoems: Poem[] = [
     currentStatus: "none",
     masteryLevel: 0,
     reciteCount: 0,
-    viewCount: 0
+    viewCount: 0,
+    wantToRecite: false
   },
   {
     id: "poem-chuntian",
@@ -25,7 +26,8 @@ export const seedPoems: Poem[] = [
     currentStatus: "none",
     masteryLevel: 0,
     reciteCount: 0,
-    viewCount: 0
+    viewCount: 0,
+    wantToRecite: false
   },
   {
     id: "poem-dengguanquelou",
@@ -39,6 +41,7 @@ export const seedPoems: Poem[] = [
     masteryLevel: 2,
     reciteCount: 1,
     viewCount: 0,
+    wantToRecite: false,
     lastRecitedAt: new Date().toISOString()
   },
   {
@@ -52,7 +55,8 @@ export const seedPoems: Poem[] = [
     currentStatus: "none",
     masteryLevel: 0,
     reciteCount: 0,
-    viewCount: 0
+    viewCount: 0,
+    wantToRecite: true
   },
   {
     id: "poem-chibi",
@@ -65,7 +69,8 @@ export const seedPoems: Poem[] = [
     currentStatus: "none",
     masteryLevel: 0,
     reciteCount: 0,
-    viewCount: 0
+    viewCount: 0,
+    wantToRecite: false
   }
 ];
 

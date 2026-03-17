@@ -14,7 +14,8 @@ describe("applyReciteResult", () => {
       currentStatus: "none",
       masteryLevel: 0,
       reciteCount: 0,
-      viewCount: 0
+      viewCount: 0,
+      wantToRecite: false
     };
 
     const next = applyReciteResult(poem, "proficient", "2026-03-07T10:00:00.000Z");

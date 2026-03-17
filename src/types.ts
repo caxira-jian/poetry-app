@@ -15,7 +15,9 @@ export interface Poem {
   masteryLevel: number;
   reciteCount: number;
   viewCount: number;
+  wantToRecite: boolean;
   lastRecitedAt?: string;
+  lastViewedAt?: string;
 }
 
 export interface ReciteLog {
@@ -47,7 +49,7 @@ export interface RecommendationItem {
 export interface RecommendationResult {
   review: RecommendationItem[];
   newLearning: RecommendationItem[];
-  source: "llm" | "fallback-list";
+  source: "rule-based" | "llm" | "fallback-list";
 }
 
 export interface ExportData {

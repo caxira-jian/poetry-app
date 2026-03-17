@@ -11,15 +11,20 @@ import { useAppStore } from "./useAppStore";
 const store = useAppStore();
 const APP_HISTORY_KEY = "poetry-app";
 
-const tabs = [
+const primaryTabs = [
   { id: "home", label: "今日" },
   { id: "library", label: "诗库" },
-  { id: "recite", label: "记录" },
-  { id: "model", label: "模型" },
-  { id: "data", label: "数据" }
+  { id: "recite", label: "记录" }
 ] as const;
 
-type TabId = (typeof tabs)[number]["id"];
+const secondaryPages = [
+  { id: "model", label: "模型配置" },
+  { id: "data", label: "数据管理" }
+] as const;
+
+const allPages = [...primaryTabs, ...secondaryPages] as const;
+
+type TabId = (typeof allPages)[number]["id"];
 type AppHistoryState = {
   __app: typeof APP_HISTORY_KEY;
   view: "main" | "detail";
@@ -28,10 +33,11 @@ type AppHistoryState = {
 };
 
 const current = ref<TabId>("home");
+const moreOpen = ref(false);
 let syncingFromHistory = false;
 
 function isTabId(value: unknown): value is TabId {
-  return typeof value === "string" && tabs.some((tab) => tab.id === value);
+  return typeof value === "string" && allPages.some((tab) => tab.id === value);
 }
 
 function isAppHistoryState(value: unknown): value is AppHistoryState {
@@ -89,6 +95,11 @@ function closeDetailWithHistory(): void {
   window.history.replaceState(buildMainState(current.value), "");
 }
 
+function openSecondaryPage(tab: Extract<TabId, "model" | "data">): void {
+  current.value = tab;
+  moreOpen.value = false;
+}
+
 const pageComponent = computed(() => {
   switch (current.value) {
     case "library":
@@ -104,10 +115,16 @@ const pageComponent = computed(() => {
   }
 });
 
+const pageTitle = computed(() => {
+  const found = allPages.find((item) => item.id === current.value);
+  return found?.label || "古诗背诵助手";
+});
+
 watch(current, (tab) => {
   if (syncingFromHistory) {
     return;
   }
+  moreOpen.value = false;
   if (store.state.selectedPoemId) {
     window.history.replaceState(buildDetailState(tab, store.state.selectedPoemId), "");
     return;
@@ -156,8 +173,27 @@ onBeforeUnmount(() => {
 
     <template v-else>
       <header class="header">
-        <h1>古诗背诵助手</h1>
-        <div class="muted">总诗词 {{ store.stats.value.total }} · 熟练 {{ store.stats.value.proficientCount }} · 记录 {{ store.stats.value.logs }}</div>
+        <div class="header-row">
+          <div>
+            <h1>古诗背诵助手</h1>
+            <div class="muted">总诗词 {{ store.stats.value.total }} · 熟练 {{ store.stats.value.proficientCount }} · 记录 {{ store.stats.value.logs }}</div>
+          </div>
+          <div class="header-actions">
+            <button class="more-button" type="button" :aria-expanded="moreOpen" @click="moreOpen = !moreOpen">更多</button>
+          </div>
+        </div>
+        <div class="page-title">{{ pageTitle }}</div>
+        <div v-if="moreOpen" class="more-panel card">
+          <button
+            v-for="page in secondaryPages"
+            :key="page.id"
+            class="more-link"
+            type="button"
+            @click="openSecondaryPage(page.id)"
+          >
+            {{ page.label }}
+          </button>
+        </div>
       </header>
 
       <main>
@@ -168,7 +204,7 @@ onBeforeUnmount(() => {
 
       <nav class="tabbar">
         <button
-          v-for="tab in tabs"
+          v-for="tab in primaryTabs"
           :key="tab.id"
           :class="{ active: current === tab.id }"
           @click="current = tab.id"
@@ -198,6 +234,44 @@ onBeforeUnmount(() => {
   z-index: 10;
   backdrop-filter: blur(8px);
   padding: 10px 4px 8px;
+}
+
+.header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.header-actions {
+  position: relative;
+}
+
+.more-button {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #f7ebd8;
+  color: var(--primary);
+}
+
+.more-panel {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.more-link {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.page-title {
+  margin-top: 8px;
+  color: var(--subtext);
+  font-size: 14px;
 }
 
 h1 {
@@ -237,7 +311,7 @@ main {
   border: 1px solid var(--border);
   border-radius: 14px;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 4px;
   padding: 6px;
 }

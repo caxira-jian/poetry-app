@@ -18,6 +18,10 @@ async function confirmSave() {
   }
 }
 
+async function toggleWant(poemId: string) {
+  await props.store.toggleWantToRecite(poemId);
+}
+
 function togglePoem(poemId: string) {
   expandedPoems.value[poemId] = !expandedPoems.value[poemId];
 }
@@ -69,13 +73,30 @@ function formatLastRecitedAt(value?: string) {
     </div>
 
     <div class="card">
-      <h3>诗库（{{ props.store.state.poems.length }}）</h3>
+      <h3>诗库（{{ props.store.sortedPoems.value.length }}）</h3>
       <div class="grid">
-        <div v-for="poem in props.store.state.poems" :key="poem.id" class="item">
-          <button class="poem-link" type="button" @click="props.store.openPoemDetail(poem.id)">
-            <div class="title">{{ poem.title }} · {{ poem.author }}</div>
-          </button>
-          <div class="muted">{{ poem.dynasty || "-" }} | 背诵次数 {{ poem.reciteCount }} | 浏览次数 {{ poem.viewCount }}</div>
+        <div v-for="poem in props.store.sortedPoems.value" :key="poem.id" class="item">
+          <div class="title-row">
+            <button class="poem-link" type="button" @click="props.store.openPoemDetail(poem.id)">
+              <div class="title">{{ poem.title }} · {{ poem.author }}</div>
+            </button>
+            <button
+              class="want-button"
+              type="button"
+              :class="{ active: poem.wantToRecite }"
+              :aria-pressed="poem.wantToRecite"
+              :disabled="props.store.state.loading"
+              @click="toggleWant(poem.id)"
+            >
+              {{ poem.wantToRecite ? "已想背" : "想背" }}
+            </button>
+          </div>
+          <div class="muted meta-line">
+            <span>{{ poem.dynasty || "-" }}</span>
+            <span>背诵次数 {{ poem.reciteCount }}</span>
+            <span>浏览次数 {{ poem.viewCount }}</span>
+            <span v-if="props.store.suggestedReviewIds.value.has(poem.id)" class="review-badge">建议复习</span>
+          </div>
           <div class="muted">最近背诵时间 {{ formatLastRecitedAt(poem.lastRecitedAt) }}</div>
           <div :class="['poem-content', { collapsed: !isExpanded(poem.id) }]" class="muted">
             {{ poem.content }}
@@ -127,16 +148,52 @@ function formatLastRecitedAt(value?: string) {
   gap: 8px;
 }
 
+.title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .title {
   font-weight: 700;
   margin-bottom: 6px;
 }
 
 .poem-link {
+  flex: 1;
   padding: 0;
   background: transparent;
   color: inherit;
   text-align: left;
+}
+
+.want-button {
+  flex-shrink: 0;
+  min-width: 68px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #f7ebd8;
+  color: var(--subtext);
+  font-size: 13px;
+}
+
+.want-button.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.meta-line {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.review-badge {
+  color: var(--primary);
+  font-weight: 700;
 }
 
 .poem-content {

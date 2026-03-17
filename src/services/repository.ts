@@ -14,7 +14,8 @@ function normalizePoem(poem: Poem): Poem {
     tags: Array.isArray(poem.tags) ? poem.tags : [],
     masteryLevel: Number.isFinite(poem.masteryLevel) ? poem.masteryLevel : 0,
     reciteCount: Number.isFinite(poem.reciteCount) ? poem.reciteCount : 0,
-    viewCount: Number.isFinite(poem.viewCount) ? poem.viewCount : 0
+    viewCount: Number.isFinite(poem.viewCount) ? poem.viewCount : 0,
+    wantToRecite: Boolean(poem.wantToRecite)
   };
 }
 

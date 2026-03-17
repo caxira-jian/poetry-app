@@ -1,5 +1,6 @@
 import { computed, reactive } from "vue";
 import { applyReciteResult, buildReciteLog } from "./domain/recite";
+import { buildTodayRecommendation, getSuggestedReviewPoemIds, sortPoemsByRecommendation } from "./domain/recommendation";
 import {
   decryptSecret,
   encryptSecret,
@@ -10,11 +11,9 @@ import {
   tryAutoUnlock,
   unlockMasterPassword
 } from "./services/crypto";
-import { getDefaultApiProfile } from "./services/defaultApi";
 import { testProviderConnection } from "./services/llmProviders";
 import { parseNaturalInputFromDefaultApi, parseNaturalInputFromLlm, type NluAction, type NluParseResult } from "./services/nluService";
 import { testDefaultProxyConnection } from "./services/defaultApiProxy";
-import { getFallbackRecommendation, getRecommendationsFromDefaultApi, getRecommendationsFromLlm } from "./services/recommendationService";
 import {
   addReciteLog,
   getPoems,
@@ -50,7 +49,6 @@ interface ChangeItem {
 type ApiMode = "default" | "custom";
 
 const API_MODE_KEY = "poetry.api.mode";
-const defaultApiProfile = getDefaultApiProfile();
 const defaultApiAvailable = true;
 
 function loadApiMode(): ApiMode {
@@ -130,11 +128,7 @@ function isSameLocalDay(left?: string, right?: string): boolean {
   }
   const a = new Date(left);
   const b = new Date(right);
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
 function poemIdFrom(title: string, author: string): string {
@@ -176,10 +170,26 @@ function ensurePoem(poems: Poem[], title: string, author?: string): Poem {
     currentStatus: "none",
     masteryLevel: 0,
     reciteCount: 0,
-    viewCount: 0
+    viewCount: 0,
+    wantToRecite: false
   };
   poems.push(next);
   return next;
+}
+
+function refreshRecommendation(): void {
+  if (state.poems.length === 0) {
+    state.recommendation = {
+      review: [],
+      newLearning: [],
+      source: "rule-based"
+    };
+    state.recommendationDebug = "诗库为空，暂无推荐。";
+    return;
+  }
+
+  state.recommendation = buildTodayRecommendation(state.poems);
+  state.recommendationDebug = "已按今日推荐排序规则自动更新。";
 }
 
 function clearNluDraft(): void {
@@ -247,6 +257,7 @@ async function refreshAll(): Promise<void> {
   if (state.selectedPoemId && !state.poems.some((item) => item.id === state.selectedPoemId)) {
     state.selectedPoemId = "";
   }
+  refreshRecommendation();
 }
 
 async function init(): Promise<void> {
@@ -344,11 +355,33 @@ async function markPoemViewed(poemId: string): Promise<void> {
   try {
     await savePoem({
       ...poem,
-      viewCount: (poem.viewCount || 0) + 1
+      viewCount: (poem.viewCount || 0) + 1,
+      lastViewedAt: new Date().toISOString()
     });
     await refreshAll();
   } catch (error) {
     setError(error);
+  }
+}
+
+async function toggleWantToRecite(poemId: string): Promise<void> {
+  const poem = state.poems.find((item) => item.id === poemId);
+  if (!poem) {
+    return;
+  }
+
+  state.loading = true;
+  clearError();
+  try {
+    await savePoem({
+      ...poem,
+      wantToRecite: !poem.wantToRecite
+    });
+    await refreshAll();
+  } catch (error) {
+    setError(error);
+  } finally {
+    state.loading = false;
   }
 }
 
@@ -508,39 +541,30 @@ async function parseNaturalInputPreview(text: string): Promise<void> {
 
     startLlm("正在解析你的口语输入并检查全量诗库...");
 
+    const promptPoems = state.poems.map((item) => ({
+      id: item.id,
+      title: item.title,
+      author: item.author,
+      content: item.content,
+      dynasty: item.dynasty,
+      tags: item.tags,
+      learnIntent: item.learnIntent,
+      currentStatus: item.currentStatus,
+      masteryLevel: item.masteryLevel,
+      lastRecitedAt: item.lastRecitedAt
+    }));
+
     const parsed: NluParseResult =
       state.apiMode === "default"
         ? await parseNaturalInputFromDefaultApi({
             text: content,
-            poems: state.poems.map((item) => ({
-              id: item.id,
-              title: item.title,
-              author: item.author,
-              content: item.content,
-              dynasty: item.dynasty,
-              tags: item.tags,
-              learnIntent: item.learnIntent,
-              currentStatus: item.currentStatus,
-              masteryLevel: item.masteryLevel,
-              lastRecitedAt: item.lastRecitedAt
-            }))
+            poems: promptPoems
           })
         : await (async () => {
             const { config, apiKey } = await getCustomProviderWithKey();
             return parseNaturalInputFromLlm({
               text: content,
-              poems: state.poems.map((item) => ({
-                id: item.id,
-                title: item.title,
-                author: item.author,
-                content: item.content,
-                dynasty: item.dynasty,
-                tags: item.tags,
-                learnIntent: item.learnIntent,
-                currentStatus: item.currentStatus,
-                masteryLevel: item.masteryLevel,
-                lastRecitedAt: item.lastRecitedAt
-              })),
+              poems: promptPoems,
               config,
               apiKey
             });
@@ -708,53 +732,7 @@ async function testProvider(provider: ProviderName): Promise<void> {
 }
 
 async function recommend(): Promise<void> {
-  state.loading = true;
-  clearError();
-  state.recommendationDebug = "";
-  try {
-    if (state.poems.length === 0) {
-      state.recommendationDebug = "诗库为空，请先到数据页初始化种子诗库或导入 JSON。";
-      state.recommendation = getFallbackRecommendation(state.poems);
-      return;
-    }
-
-    startLlm("正在让大模型生成推荐...");
-
-    try {
-      const llmResult =
-        state.apiMode === "default"
-          ? await getRecommendationsFromDefaultApi({ poems: state.poems, logs: state.reciteLogs })
-          : await (async () => {
-              const { config, apiKey } = await getCustomProviderWithKey();
-              return getRecommendationsFromLlm({
-                poems: state.poems,
-                logs: state.reciteLogs,
-                config,
-                apiKey
-              });
-            })();
-
-      const isEmpty = llmResult.review.length === 0 && llmResult.newLearning.length === 0;
-      if (isEmpty) {
-        state.recommendationDebug = `LLM 调用成功但返回空推荐，已切换规则候选。来源：${state.apiMode === "default" ? defaultApiProfile.config.provider : "custom"}（${state.apiMode}）。`;
-        state.recommendation = getFallbackRecommendation(state.poems);
-      } else {
-        state.recommendation = llmResult;
-        state.recommendationDebug = `LLM 推荐成功，来源：${state.apiMode === "default" ? defaultApiProfile.config.provider : "custom"}（${state.apiMode}）。`;
-      }
-    } catch (error) {
-      const errorText = error instanceof Error ? error.message : String(error);
-      state.recommendationDebug = `调用模型失败：${errorText}。已使用兜底方案。`;
-      state.recommendation = getFallbackRecommendation(state.poems);
-    }
-  } catch (error) {
-    const errorText = error instanceof Error ? error.message : String(error);
-    state.recommendationDebug = `${errorText}。已使用兜底方案。`;
-    state.recommendation = getFallbackRecommendation(state.poems);
-  } finally {
-    endLlm();
-    state.loading = false;
-  }
+  refreshRecommendation();
 }
 
 function exportJson(): string {
@@ -803,12 +781,16 @@ const stats = computed(() => {
   };
 });
 
+const sortedPoems = computed(() => sortPoemsByRecommendation(state.poems));
+const suggestedReviewIds = computed(() => new Set(getSuggestedReviewPoemIds(state.poems)));
 const selectedPoem = computed(() => state.poems.find((item) => item.id === state.selectedPoemId) || null);
 
 export function useAppStore() {
   return {
     state,
     stats,
+    sortedPoems,
+    suggestedReviewIds,
     selectedPoem,
     init,
     ensureSeedPoems,
@@ -816,6 +798,7 @@ export function useAppStore() {
     upsertPoems,
     recordRecite,
     markPoemViewed,
+    toggleWantToRecite,
     markPoemRecitedToday,
     hasRecitedToday,
     openPoemDetail,
