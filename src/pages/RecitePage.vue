@@ -1,56 +1,13 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import ModelPage from "./ModelPage.vue";
+import DataPage from "./DataPage.vue";
 import type { useAppStore } from "../useAppStore";
 
 const props = defineProps<{ store: ReturnType<typeof useAppStore> }>();
-
-const naturalInput = ref("");
-
-async function parsePreview() {
-  await props.store.parseNaturalInputPreview(naturalInput.value);
-}
-
-async function confirmSave() {
-  await props.store.confirmNaturalInput();
-  if (!props.store.state.error) {
-    naturalInput.value = "";
-  }
-}
 </script>
 
 <template>
-  <section class="page">
-    <div class="card grid">
-      <h3>背诵口语记录</h3>
-      <div class="muted">示例："今天晚上我把静夜思背完了，状态熟练"</div>
-      <div class="muted">示例："刚背了春晓，算完成，时间是今天 21:30"</div>
-      <textarea v-model="naturalInput" rows="5" placeholder="用口语说出你刚背完哪首诗、状态和时间" />
-      <button :disabled="props.store.state.loading" @click="parsePreview">
-        <span v-if="props.store.state.loading">生成中<span class="dot-loop"><span>.</span><span>.</span><span>.</span></span></span>
-        <span v-else>让大模型先解析</span>
-      </button>
-
-      <div v-if="props.store.state.hasNluDraft" class="preview">
-        <div class="title">解析预览</div>
-        <div class="muted">{{ props.store.state.nluPreviewSummary }}</div>
-        <pre>{{ props.store.state.nluPreviewActionsJson }}</pre>
-
-        <div class="title">变更校验</div>
-        <div class="muted">{{ props.store.state.nluChangeSummary }}</div>
-        <pre>{{ props.store.state.nluChangeItemsJson }}</pre>
-
-        <div class="actions">
-          <button :disabled="props.store.state.loading" @click="confirmSave">
-            <span v-if="props.store.state.loading">生成中<span class="dot-loop"><span>.</span><span>.</span><span>.</span></span></span>
-            <span v-else>确认入库</span>
-          </button>
-          <button class="secondary" :disabled="props.store.state.loading" @click="props.store.clearNluDraft">取消</button>
-        </div>
-      </div>
-
-      <div v-if="props.store.state.nluResult" class="muted">结果：{{ props.store.state.nluResult }}</div>
-    </div>
-
+  <section class="page settings-page">
     <div class="card">
       <h3>最近记录</h3>
       <div v-if="!props.store.state.reciteLogs.length" class="muted">暂无记录</div>
@@ -62,37 +19,23 @@ async function confirmSave() {
         </div>
       </div>
     </div>
+
+    <ModelPage :store="props.store" />
+    <DataPage :store="props.store" />
   </section>
 </template>
 
 <style scoped>
+.settings-page {
+  display: grid;
+  gap: 12px;
+}
+
 .item {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px;
   background: #fffdfa;
-}
-
-.preview {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px;
-  background: #fff5ea;
-}
-
-.preview pre {
-  margin: 8px 0;
-  max-height: 220px;
-  overflow: auto;
-  background: #fff;
-  border-radius: 8px;
-  padding: 8px;
-  font-size: 12px;
-}
-
-.actions {
-  display: flex;
-  gap: 8px;
 }
 
 .title {

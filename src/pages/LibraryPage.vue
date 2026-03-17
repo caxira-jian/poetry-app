@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import type { useAppStore } from "../useAppStore";
 
 const props = defineProps<{ store: ReturnType<typeof useAppStore> }>();
 
 const naturalInput = ref("");
-const expandedPoems = ref<Record<string, boolean>>({});
+const showInput = ref(false);
+
+const canShowInput = computed(() => showInput.value || props.store.state.hasNluDraft || Boolean(props.store.state.nluResult));
 
 async function parsePreview() {
   await props.store.parseNaturalInputPreview(naturalInput.value);
@@ -22,18 +24,6 @@ async function toggleWant(poemId: string) {
   await props.store.toggleWantToRecite(poemId);
 }
 
-function togglePoem(poemId: string) {
-  expandedPoems.value[poemId] = !expandedPoems.value[poemId];
-}
-
-function isExpanded(poemId: string) {
-  return Boolean(expandedPoems.value[poemId]);
-}
-
-function shouldShowToggle(content: string) {
-  return content.length > 42 || content.includes("\n");
-}
-
 function formatLastRecitedAt(value?: string) {
   return value ? new Date(value).toLocaleString() : "暂无";
 }
@@ -41,52 +31,60 @@ function formatLastRecitedAt(value?: string) {
 
 <template>
   <section class="page">
-    <div class="card grid">
-      <h3>诗库口语输入</h3>
-      <div class="muted">示例："我已经会《登鹳雀楼》，接下来想学《游子吟》"</div>
-      <div class="muted">示例："新增一首《饮酒》，作者陶渊明，内容是结庐在人境...，标签田园"</div>
-      <textarea v-model="naturalInput" rows="6" placeholder="用自然语言描述你会背哪些、想学哪些，或新增/更新诗词" />
-      <button :disabled="props.store.state.loading" @click="parsePreview">
-        <span v-if="props.store.state.loading">生成中<span class="dot-loop"><span>.</span><span>.</span><span>.</span></span></span>
-        <span v-else>让大模型先解析</span>
-      </button>
-
-      <div v-if="props.store.state.hasNluDraft" class="preview">
-        <div class="title">解析预览</div>
-        <div class="muted">{{ props.store.state.nluPreviewSummary }}</div>
-        <pre>{{ props.store.state.nluPreviewActionsJson }}</pre>
-
-        <div class="title">变更校验</div>
-        <div class="muted">{{ props.store.state.nluChangeSummary }}</div>
-        <pre>{{ props.store.state.nluChangeItemsJson }}</pre>
-
-        <div class="actions">
-          <button :disabled="props.store.state.loading" @click="confirmSave">
-            <span v-if="props.store.state.loading">生成中<span class="dot-loop"><span>.</span><span>.</span><span>.</span></span></span>
-            <span v-else>确认入库</span>
-          </button>
-          <button class="secondary" :disabled="props.store.state.loading" @click="props.store.clearNluDraft">取消</button>
-        </div>
+    <div class="card">
+      <div class="section-head">
+        <h3>诗库（{{ props.store.sortedPoems.value.length }}）</h3>
+        <button class="icon-button" type="button" @click="showInput = !showInput">{{ showInput ? "-" : "+" }}</button>
       </div>
 
-      <div v-if="props.store.state.nluResult" class="muted">结果：{{ props.store.state.nluResult }}</div>
-    </div>
+      <div v-if="canShowInput" class="grid input-panel">
+        <div class="muted">示例："我已经会《登鹳雀楼》，接下来想学《游子吟》"</div>
+        <div class="muted">示例："新增一首《饮酒》，作者陶渊明，内容是结庐在人境...，标签田园"</div>
+        <textarea v-model="naturalInput" rows="6" placeholder="用自然语言描述你会背哪些、想学哪些，或新增/更新诗词" />
+        <button :disabled="props.store.state.loading" @click="parsePreview">
+          <span v-if="props.store.state.loading">生成中<span class="dot-loop"><span>.</span><span>.</span><span>.</span></span></span>
+          <span v-else>让大模型先解析</span>
+        </button>
 
-    <div class="card">
-      <h3>诗库（{{ props.store.sortedPoems.value.length }}）</h3>
-      <div class="grid">
-        <div v-for="poem in props.store.sortedPoems.value" :key="poem.id" class="item">
-          <div class="title-row">
-            <button class="poem-link" type="button" @click="props.store.openPoemDetail(poem.id)">
-              <div class="title">{{ poem.title }} · {{ poem.author }}</div>
+        <div v-if="props.store.state.hasNluDraft" class="preview">
+          <div class="title">解析预览</div>
+          <div class="muted">{{ props.store.state.nluPreviewSummary }}</div>
+          <pre>{{ props.store.state.nluPreviewActionsJson }}</pre>
+
+          <div class="title">变更校验</div>
+          <div class="muted">{{ props.store.state.nluChangeSummary }}</div>
+          <pre>{{ props.store.state.nluChangeItemsJson }}</pre>
+
+          <div class="actions">
+            <button :disabled="props.store.state.loading" @click="confirmSave">
+              <span v-if="props.store.state.loading">生成中<span class="dot-loop"><span>.</span><span>.</span><span>.</span></span></span>
+              <span v-else>确认入库</span>
             </button>
+            <button class="secondary" :disabled="props.store.state.loading" @click="props.store.clearNluDraft">取消</button>
+          </div>
+        </div>
+
+        <div v-if="props.store.state.nluResult" class="muted">结果：{{ props.store.state.nluResult }}</div>
+      </div>
+
+      <div class="grid poem-list">
+        <button
+          v-for="poem in props.store.sortedPoems.value"
+          :key="poem.id"
+          class="item poem-card"
+          type="button"
+          @click="props.store.openPoemDetail(poem.id)"
+        >
+          <div class="title-row">
+            <div class="title">{{ poem.title }} · {{ poem.author }}</div>
             <button
+              v-if="poem.reciteCount === 0"
               class="want-button"
               type="button"
               :class="{ active: poem.wantToRecite }"
               :aria-pressed="poem.wantToRecite"
               :disabled="props.store.state.loading"
-              @click="toggleWant(poem.id)"
+              @click.stop="toggleWant(poem.id)"
             >
               {{ poem.wantToRecite ? "已想背" : "想背" }}
             </button>
@@ -98,32 +96,52 @@ function formatLastRecitedAt(value?: string) {
             <span v-if="props.store.suggestedReviewIds.value.has(poem.id)" class="review-badge">建议复习</span>
           </div>
           <div class="muted">最近背诵时间 {{ formatLastRecitedAt(poem.lastRecitedAt) }}</div>
-          <div :class="['poem-content', { collapsed: !isExpanded(poem.id) }]" class="muted">
-            {{ poem.content }}
-          </div>
-          <div class="item-actions">
-            <button
-              v-if="shouldShowToggle(poem.content)"
-              class="text-button"
-              type="button"
-              @click="togglePoem(poem.id)"
-            >
-              {{ isExpanded(poem.id) ? "收起" : "展开全文" }}
-            </button>
-            <button class="text-button" type="button" @click="props.store.openPoemDetail(poem.id)">查看详情</button>
-          </div>
-        </div>
+          <div class="muted poem-summary">{{ poem.content }}</div>
+        </button>
       </div>
     </div>
   </section>
 </template>
 
 <style scoped>
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+h3 {
+  margin: 0;
+}
+
+.icon-button {
+  min-width: 42px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #f7ebd8;
+  color: var(--primary);
+}
+
+.input-panel {
+  margin-bottom: 14px;
+}
+
+.poem-list {
+  margin-top: 6px;
+}
+
 .item {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px;
   background: #fffdfa;
+}
+
+.poem-card {
+  width: 100%;
+  text-align: left;
 }
 
 .preview {
@@ -160,14 +178,6 @@ function formatLastRecitedAt(value?: string) {
   margin-bottom: 6px;
 }
 
-.poem-link {
-  flex: 1;
-  padding: 0;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-}
-
 .want-button {
   flex-shrink: 0;
   min-width: 68px;
@@ -196,38 +206,10 @@ function formatLastRecitedAt(value?: string) {
   font-weight: 700;
 }
 
-.poem-content {
+.poem-summary {
   margin-top: 4px;
-  line-height: 1.8;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.poem-content.collapsed {
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-.item-actions {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.text-button {
-  margin-top: 6px;
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  color: var(--primary);
-  font-size: 13px;
-  text-align: left;
-}
-
-h3 {
-  margin: 0 0 8px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 </style>

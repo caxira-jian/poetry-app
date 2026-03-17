@@ -74,6 +74,7 @@ const state = reactive({
   providerConfigs: [] as ProviderConfig[],
   recommendation: null as RecommendationResult | null,
   recommendationDebug: "",
+  recommendationUpdatedAt: "",
   providerTestResult: "",
   nluResult: "",
   nluPreviewSummary: "",
@@ -184,12 +185,14 @@ function refreshRecommendation(): void {
       newLearning: [],
       source: "rule-based"
     };
-    state.recommendationDebug = "诗库为空，暂无推荐。";
+    state.recommendationDebug = "";
+    state.recommendationUpdatedAt = "";
     return;
   }
 
   state.recommendation = buildTodayRecommendation(state.poems);
-  state.recommendationDebug = "已按今日推荐排序规则自动更新。";
+  state.recommendationDebug = "";
+  state.recommendationUpdatedAt = new Date().toISOString();
 }
 
 function clearNluDraft(): void {
@@ -819,3 +822,5 @@ export function useAppStore() {
     importJson
   };
 }
+
+

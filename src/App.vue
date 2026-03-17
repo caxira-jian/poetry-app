@@ -1,30 +1,21 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import HomePage from "./pages/HomePage.vue";
 import LibraryPage from "./pages/LibraryPage.vue";
 import RecitePage from "./pages/RecitePage.vue";
-import ModelPage from "./pages/ModelPage.vue";
-import DataPage from "./pages/DataPage.vue";
 import PoemDetailPage from "./pages/PoemDetailPage.vue";
 import { useAppStore } from "./useAppStore";
 
 const store = useAppStore();
 const APP_HISTORY_KEY = "poetry-app";
 
-const primaryTabs = [
+const tabs = [
   { id: "home", label: "今日" },
   { id: "library", label: "诗库" },
-  { id: "recite", label: "记录" }
+  { id: "recite", label: "设置" }
 ] as const;
 
-const secondaryPages = [
-  { id: "model", label: "模型配置" },
-  { id: "data", label: "数据管理" }
-] as const;
-
-const allPages = [...primaryTabs, ...secondaryPages] as const;
-
-type TabId = (typeof allPages)[number]["id"];
+type TabId = (typeof tabs)[number]["id"];
 type AppHistoryState = {
   __app: typeof APP_HISTORY_KEY;
   view: "main" | "detail";
@@ -33,11 +24,10 @@ type AppHistoryState = {
 };
 
 const current = ref<TabId>("home");
-const moreOpen = ref(false);
 let syncingFromHistory = false;
 
 function isTabId(value: unknown): value is TabId {
-  return typeof value === "string" && allPages.some((tab) => tab.id === value);
+  return typeof value === "string" && tabs.some((tab) => tab.id === value);
 }
 
 function isAppHistoryState(value: unknown): value is AppHistoryState {
@@ -95,36 +85,10 @@ function closeDetailWithHistory(): void {
   window.history.replaceState(buildMainState(current.value), "");
 }
 
-function openSecondaryPage(tab: Extract<TabId, "model" | "data">): void {
-  current.value = tab;
-  moreOpen.value = false;
-}
-
-const pageComponent = computed(() => {
-  switch (current.value) {
-    case "library":
-      return LibraryPage;
-    case "recite":
-      return RecitePage;
-    case "model":
-      return ModelPage;
-    case "data":
-      return DataPage;
-    default:
-      return HomePage;
-  }
-});
-
-const pageTitle = computed(() => {
-  const found = allPages.find((item) => item.id === current.value);
-  return found?.label || "古诗背诵助手";
-});
-
 watch(current, (tab) => {
   if (syncingFromHistory) {
     return;
   }
-  moreOpen.value = false;
   if (store.state.selectedPoemId) {
     window.history.replaceState(buildDetailState(tab, store.state.selectedPoemId), "");
     return;
@@ -173,38 +137,21 @@ onBeforeUnmount(() => {
 
     <template v-else>
       <header class="header">
-        <div class="header-row">
-          <div>
-            <h1>古诗背诵助手</h1>
-            <div class="muted">总诗词 {{ store.stats.value.total }} · 熟练 {{ store.stats.value.proficientCount }} · 记录 {{ store.stats.value.logs }}</div>
-          </div>
-          <div class="header-actions">
-            <button class="more-button" type="button" :aria-expanded="moreOpen" @click="moreOpen = !moreOpen">更多</button>
-          </div>
-        </div>
-        <div class="page-title">{{ pageTitle }}</div>
-        <div v-if="moreOpen" class="more-panel card">
-          <button
-            v-for="page in secondaryPages"
-            :key="page.id"
-            class="more-link"
-            type="button"
-            @click="openSecondaryPage(page.id)"
-          >
-            {{ page.label }}
-          </button>
-        </div>
+        <h1>古诗背诵助手</h1>
+        <div class="muted">总诗词 {{ store.stats.value.total }} · 熟练 {{ store.stats.value.proficientCount }} · 记录 {{ store.stats.value.logs }}</div>
       </header>
 
       <main>
         <div v-if="store.state.error" class="error">{{ store.state.error }}</div>
         <div v-if="store.state.llmBusy" class="busy">生成中：{{ store.state.llmTask || "请稍候" }}<span class="dot-loop"><span>.</span><span>.</span><span>.</span></span></div>
-        <component :is="pageComponent" :store="store" />
+        <HomePage v-if="current === 'home'" :store="store" />
+        <LibraryPage v-else-if="current === 'library'" :store="store" />
+        <RecitePage v-else :store="store" />
       </main>
 
       <nav class="tabbar">
         <button
-          v-for="tab in primaryTabs"
+          v-for="tab in tabs"
           :key="tab.id"
           :class="{ active: current === tab.id }"
           @click="current = tab.id"
@@ -234,44 +181,6 @@ onBeforeUnmount(() => {
   z-index: 10;
   backdrop-filter: blur(8px);
   padding: 10px 4px 8px;
-}
-
-.header-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.header-actions {
-  position: relative;
-}
-
-.more-button {
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: #f7ebd8;
-  color: var(--primary);
-}
-
-.more-panel {
-  margin-top: 10px;
-  display: grid;
-  gap: 8px;
-}
-
-.more-link {
-  width: 100%;
-  text-align: left;
-  background: transparent;
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
-.page-title {
-  margin-top: 8px;
-  color: var(--subtext);
-  font-size: 14px;
 }
 
 h1 {
