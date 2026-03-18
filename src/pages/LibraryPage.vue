@@ -27,6 +27,10 @@ async function toggleWant(poemId: string) {
 function formatLastRecitedAt(value?: string) {
   return value ? new Date(value).toLocaleString() : "暂无";
 }
+
+function openDetail(poemId: string) {
+  props.store.openPoemDetail(poemId);
+}
 </script>
 
 <template>
@@ -68,12 +72,15 @@ function formatLastRecitedAt(value?: string) {
       </div>
 
       <div class="grid poem-list">
-        <button
+        <article
           v-for="poem in props.store.sortedPoems.value"
           :key="poem.id"
           class="item poem-card"
-          type="button"
-          @click="props.store.openPoemDetail(poem.id)"
+          role="button"
+          tabindex="0"
+          @click="openDetail(poem.id)"
+          @keydown.enter="openDetail(poem.id)"
+          @keydown.space.prevent="openDetail(poem.id)"
         >
           <div class="title-row">
             <div class="title">{{ poem.title }} · {{ poem.author }}</div>
@@ -97,7 +104,7 @@ function formatLastRecitedAt(value?: string) {
           </div>
           <div class="muted">最近背诵时间 {{ formatLastRecitedAt(poem.lastRecitedAt) }}</div>
           <div class="muted poem-summary">{{ poem.content }}</div>
-        </button>
+        </article>
       </div>
     </div>
   </section>
@@ -135,13 +142,15 @@ h3 {
 .item {
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 10px;
+  padding: 12px;
   background: #fffdfa;
 }
 
 .poem-card {
   width: 100%;
   text-align: left;
+  color: var(--text);
+  cursor: pointer;
 }
 
 .preview {
@@ -176,6 +185,7 @@ h3 {
 .title {
   font-weight: 700;
   margin-bottom: 6px;
+  color: var(--text);
 }
 
 .want-button {

@@ -2,7 +2,9 @@
 import { ref } from "vue";
 import type { useAppStore } from "../useAppStore";
 
-const props = defineProps<{ store: ReturnType<typeof useAppStore> }>();
+const props = withDefaults(defineProps<{ store: ReturnType<typeof useAppStore>; embedded?: boolean }>(), {
+  embedded: false
+});
 
 const importMode = ref<"merge" | "overwrite">("merge");
 const importText = ref("");
@@ -43,7 +45,7 @@ async function loadFile(event: Event) {
 </script>
 
 <template>
-  <section class="page">
+  <component :is="props.embedded ? 'div' : 'section'" :class="props.embedded ? 'settings-sections' : 'page'">
     <div class="card grid">
       <h3>初始化诗库</h3>
       <button :disabled="props.store.state.loading" @click="initSeed(false)">初始化种子诗库（保留现有）</button>
@@ -67,10 +69,15 @@ async function loadFile(event: Event) {
     </div>
 
     <div v-if="message" class="card muted">{{ message }}</div>
-  </section>
+  </component>
 </template>
 
 <style scoped>
+.settings-sections {
+  display: grid;
+  gap: 12px;
+}
+
 h3 {
   margin: 0 0 8px;
 }

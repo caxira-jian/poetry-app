@@ -19,6 +19,13 @@ const updatedAtText = computed(() => {
     ? new Date(props.store.state.recommendationUpdatedAt).toLocaleString()
     : "暂无";
 });
+
+function openDetail(poemId?: string) {
+  if (!poemId) {
+    return;
+  }
+  props.store.openPoemDetail(poemId);
+}
 </script>
 
 <template>
@@ -30,16 +37,19 @@ const updatedAtText = computed(() => {
 
       <div v-if="!recommendationRows.length" class="muted empty">暂无推荐</div>
       <div v-else class="grid recommendation-list">
-        <button
+        <article
           v-for="item in recommendationRows"
           :key="item.poemId"
           class="recommendation-item"
-          type="button"
-          @click="item.poem && props.store.openPoemDetail(item.poem.id)"
+          role="button"
+          tabindex="0"
+          @click="openDetail(item.poem?.id)"
+          @keydown.enter="openDetail(item.poem?.id)"
+          @keydown.space.prevent="openDetail(item.poem?.id)"
         >
           <div class="item-title">{{ item.poem ? `${item.poem.title} · ${item.poem.author}` : item.poemId }}</div>
-          <div class="muted multiline">{{ item.reason }}</div>
-        </button>
+          <div class="item-reason">{{ item.reason }}</div>
+        </article>
       </div>
     </div>
   </section>
@@ -64,19 +74,25 @@ h3 {
 
 .recommendation-item {
   width: 100%;
-  padding: 12px;
+  padding: 14px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: #fffdfa;
   text-align: left;
+  color: var(--text);
+  cursor: pointer;
 }
 
 .item-title {
   font-weight: 700;
   margin-bottom: 6px;
+  color: var(--text);
 }
 
-.multiline {
+.item-reason {
+  color: var(--subtext);
+  font-size: 14px;
+  line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
 }

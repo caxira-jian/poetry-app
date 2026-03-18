@@ -4,7 +4,9 @@ import type { ProviderConfig } from "../types";
 import type { useAppStore } from "../useAppStore";
 import { providerLabel } from "../services/llmProviders";
 
-const props = defineProps<{ store: ReturnType<typeof useAppStore> }>();
+const props = withDefaults(defineProps<{ store: ReturnType<typeof useAppStore>; embedded?: boolean }>(), {
+  embedded: false
+});
 
 const passwordInput = reactive({
   init: "",
@@ -48,7 +50,7 @@ async function testConfig(config: ProviderConfig) {
 </script>
 
 <template>
-  <section class="page">
+  <component :is="props.embedded ? 'div' : 'section'" :class="props.embedded ? 'settings-sections' : 'page'">
     <div class="card grid">
       <h3>API 模式</h3>
       <label class="row">
@@ -160,10 +162,15 @@ async function testConfig(config: ProviderConfig) {
         {{ props.store.state.providerTestResult }}
       </div>
     </div>
-  </section>
+  </component>
 </template>
 
 <style scoped>
+.settings-sections {
+  display: grid;
+  gap: 12px;
+}
+
 .item {
   border: 1px solid var(--border);
   border-radius: 12px;

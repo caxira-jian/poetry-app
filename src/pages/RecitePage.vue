@@ -20,8 +20,8 @@ const props = defineProps<{ store: ReturnType<typeof useAppStore> }>();
       </div>
     </div>
 
-    <ModelPage :store="props.store" />
-    <DataPage :store="props.store" />
+    <ModelPage :store="props.store" embedded />
+    <DataPage :store="props.store" embedded />
   </section>
 </template>
 
