@@ -102,7 +102,7 @@ function openDetail(poemId: string) {
             <span>浏览次数 {{ poem.viewCount }}</span>
             <span v-if="props.store.suggestedReviewIds.value.has(poem.id)" class="review-badge">建议复习</span>
           </div>
-          <div class="muted">最近背诵时间 {{ formatLastRecitedAt(poem.lastRecitedAt) }}</div>
+          <div class="muted last-recited">最近背诵时间 {{ formatLastRecitedAt(poem.lastRecitedAt) }}</div>
           <div class="muted poem-summary">{{ poem.content }}</div>
         </article>
       </div>
@@ -137,17 +137,21 @@ h3 {
 
 .poem-list {
   margin-top: 6px;
+  min-width: 0;
 }
 
 .item {
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 12px;
   background: #fffdfa;
+  overflow: hidden;
 }
 
 .poem-card {
-  width: 100%;
+  display: block;
+  min-width: 0;
   text-align: left;
   color: var(--text);
   cursor: pointer;
@@ -180,15 +184,21 @@ h3 {
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
+  min-width: 0;
 }
 
 .poem-title {
+  min-width: 0;
+  flex: 1 1 auto;
   margin: 0 0 6px;
   font-size: 18px;
   line-height: 1.4;
   font-weight: 700;
   color: var(--text) !important;
   -webkit-text-fill-color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .preview-title {
@@ -218,11 +228,17 @@ h3 {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .review-badge {
   color: var(--primary);
   font-weight: 700;
+}
+
+.last-recited,
+.poem-summary {
+  min-width: 0;
 }
 
 .poem-summary {
@@ -232,5 +248,3 @@ h3 {
   text-overflow: ellipsis;
 }
 </style>
-
-
