@@ -51,11 +51,11 @@ function openDetail(poemId: string) {
         </button>
 
         <div v-if="props.store.state.hasNluDraft" class="preview">
-          <div class="title">解析预览</div>
+          <div class="preview-title">解析预览</div>
           <div class="muted">{{ props.store.state.nluPreviewSummary }}</div>
           <pre>{{ props.store.state.nluPreviewActionsJson }}</pre>
 
-          <div class="title">变更校验</div>
+          <div class="preview-title">变更校验</div>
           <div class="muted">{{ props.store.state.nluChangeSummary }}</div>
           <pre>{{ props.store.state.nluChangeItemsJson }}</pre>
 
@@ -83,7 +83,7 @@ function openDetail(poemId: string) {
           @keydown.space.prevent="openDetail(poem.id)"
         >
           <div class="title-row">
-            <div class="title">{{ poem.title }} · {{ poem.author }}</div>
+            <h4 class="poem-title">{{ poem.title }} · {{ poem.author }}</h4>
             <button
               v-if="poem.reciteCount === 0"
               class="want-button"
@@ -182,7 +182,16 @@ h3 {
   gap: 10px;
 }
 
-.title {
+.poem-title {
+  margin: 0 0 6px;
+  font-size: 18px;
+  line-height: 1.4;
+  font-weight: 700;
+  color: var(--text) !important;
+  -webkit-text-fill-color: var(--text);
+}
+
+.preview-title {
   font-weight: 700;
   margin-bottom: 6px;
   color: var(--text);
@@ -223,3 +232,5 @@ h3 {
   text-overflow: ellipsis;
 }
 </style>
+
+
