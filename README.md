@@ -20,6 +20,18 @@ npm install
 npm run dev
 ```
 
+### 本地调试默认 API（`/api/llm`）
+
+`npm run dev` 已经把 `/api/llm` 挂到 dev server 上，直接复用 `api/llm.ts`，不需要额外启动 `vercel dev`。
+
+1. 复制 `.env.example` 为 `.env.local`（已被 `.gitignore` 忽略）
+2. 填入 `DEFAULT_API_KEY`
+3. 重启 `npm run dev`
+
+- `DEFAULT_API_*` 只注入 dev server 的 Node 进程，不会进入浏览器包。
+- `VITE_DEFAULT_*` 只用于前端展示文案，不含密钥。
+- `npm run preview` 预览的是静态产物，不含 `/api/llm`。
+
 ## 测试
 
 ```bash
